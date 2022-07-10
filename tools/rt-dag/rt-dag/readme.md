@@ -72,8 +72,8 @@ $> make -j 6
 
 One can change the compilation parameters with *ccmake*:
 
-  - The parameter *LOG_LEVEL* can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
-  - The parameter "TASK_IMPL* indicates whether the DAG is implemented with threads or processes. The default value is threads.
+  - The parameter **LOG_LEVEL** can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
+  - The parameter **TASK_IMPL** indicates whether the DAG is implemented with threads or processes. The default value is threads.
 
 # How to run
 
@@ -179,12 +179,19 @@ load the perf.dat file into hotspot.
 # TODO
 
  -[x] the amount of data sent in the messages still don't correspond to the DAG description;
+
  -[x] it seems to have some sync issue among the tasks. A temporary hack is to put some sleeps when the tasks are spawned;
+
  -[] Improve end-to-end deadline checking: there is a potential sync error in the current implementation. If the DAG deadline is violated, the start time would start the next iteration, updating the shared variable. This way, the final task would loose the starting time of the previous iteration, missing the deadline violation. A queue of size one with blocking send could be a solution ?!?!
+
  -[] extend the data structure to pin down a task to a core;
+
  -[] extend the data structure to set the frequency of the islands;
+
  -[] check the power budget;
+
  -[x] implement thread-level task modeling;
+ 
  -[x] implement shared-memory IPC strategy.
 
 ## Authors
