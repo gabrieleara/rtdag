@@ -19,6 +19,8 @@
 
 #include "dag.h"
 #include "shared_mem_type.h"
+#include "circular_buffer.h"
+#include "circular_shm.h"
 
 using namespace std;
 
@@ -27,16 +29,17 @@ using namespace std;
 // choose the appropriate communication method based on the task implementation
 #if TASK_IMPL == 0 
     // thread-based task implementation
-    #include "circular_buffer.h"
     using cbuffer = circular_buffer <shared_mem_type,BUFFER_LINES>;
 #else
     // process-based task implementation
-    #include "circular_shm.h"
     using cbuffer = circular_shm <shared_mem_type,BUFFER_LINES>;
 #endif
 
 using ptr_cbuffer = std::shared_ptr< cbuffer >;
 using vet_cbuffer = std::vector< ptr_cbuffer >;
+
+// POSIX shared memory are used both for thread/process task implementation
+using dag_deadline_type = circular_shm <unsigned long,1>;
 
 typedef struct {
     // the only reason this is pointer is that, when using circular_shm, it requries to pass the shared mem name
@@ -75,7 +78,6 @@ public:
                     ptr_edge new_edge(new edge_type);
                     sprintf(new_edge->name, "n%u_n%u", i,c);
                     new_edge->buff = (std::unique_ptr< cbuffer >) new cbuffer(new_edge->name);
-                    // LOG(INFO,"creating buffer '%s' of size %u\n", new_edge->name, adjacency_matrix[i][c]);
                     // this message size includes the string terminator, thus, threre is no +1 here
                     new_edge->size = adjacency_matrix[i][c];
                     tasks[i].out_buffers.push_back(new_edge);
@@ -112,11 +114,14 @@ public:
     #endif
   }
 
-///////////////////////////////////////
-// describing each task of the dag
-///////////////////////////////////////
+private:
+    
+    // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
+    vector<int> *pid_list;
+
+// This is the main method that actually implements the task behaviour. It reads its inputs
+// execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-// all tasks have the same signature to simplify automatic codegen in the future
 static void task_creator(unsigned seed, const task_type& task, const unsigned long period_ns=0){
   unsigned iter=0;
   unsigned i;
@@ -135,6 +140,9 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
 //   uint32_t threadID   __attribute__((unused)) = myHashObject(std::this_thread::get_id());
 //   LOG(INFO,"task %s created: pid = %u, ppid = %d\n", task_name, threadID, getppid());
 
+  // this is used only bu the start and end tasks to check the end-to-end DAG deadline  
+  dag_deadline_type dag_start_time("dag_start_time");
+
   // each task has its own rnd engine to limit blocking for shared resources.
   // the thread seed is built by summin up the main seed + a hash of the task name, which is unique
   seed+= std::hash<std::string>{}(task.name);
@@ -147,7 +155,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
   pinfo.period_ns = period_ns;
   periodic_task_init(&pinfo);
 
-  unsigned long now_long;
+  unsigned long now_long, duration;
   unsigned long task_start_time;
 
   // local copy of the incomming data. this copy is not required since it is shared var,
@@ -158,11 +166,11 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
     // this variable is set by the starting task and read by the final task.
     // if this is the starting task, i.e. a task with no input queues, get the time the dag started.
-    // if (task.in_buffers.size() == 0){
-    //   now_long = (unsigned long) micros(); 
-    //   dag_start_time = now_long;
-    //   LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
-    // }
+    if (task.in_buffers.size() == 0){
+      now_long = (unsigned long) micros(); 
+      dag_start_time.push(now_long);
+      LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
+    }
 
     // wait all incomming messages
     LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
@@ -199,13 +207,14 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
     now_long = micros();
-    printf("task %s (%u): task duration %lu us\n", task_name, iter, now_long - task_start_time);
+    duration = now_long - task_start_time;
+    printf("task %s (%u): task duration %lu us\n", task_name, iter, duration);
     // check the duration of the tasks if this is in conformance w their wcet.
-    if (now_long - task_start_time > task.wcet){
-        printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, now_long - task_start_time, task.wcet);
+    if (duration > task.wcet){
+        printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, duration, task.wcet);
     }
-    if (now_long - task_start_time > task.deadline){
-        printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, now_long - task_start_time, task.deadline);
+    if (duration > task.deadline){
+        printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
         //TODO: stop or continue ?
     }
 
@@ -215,30 +224,21 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     }
 
     // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
-    // if (task.out_buffers.size() == 0){
-    //     // TODO: there is a potential important sync error here. If the DAG deadline is violated, the start time 
-    //     // would start the next iteration, updating the shared variable. This way, the final task would loose the 
-    //     // starting time of the previous iteration, missing the deadline violation !!!
-    //     unsigned long duration_long = now_long-dag_start_time;
-    //     printf("task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, dag_start_time, duration_long, US_TO_MSEC(duration_long), US_TO_SEC(duration_long));
-    //     if (duration_long > DAG_DEADLINE){
-    //         printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration_long);
-    //         // dont check the dag deadline in the 1st iterations
-    //         if (iter > 5){
-    //             assert(duration_long < DAG_DEADLINE);
-    //         }
-    //     }
-    // }
+    if (task.out_buffers.size() == 0){
+        unsigned long last_dag_start;
+        dag_start_time.pop(last_dag_start);
+        duration = now_long - last_dag_start;
+        LOG(INFO,"task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
+        printf("task %s (%u): dag duration = %lu us\n\n", task_name, iter,  duration);
+        if (duration > DAG_DEADLINE){
+            printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
+            assert(duration <= DAG_DEADLINE);
+        }
+    }
     ++iter;
   }
 
 }
-
-
-
-private:
-    // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
-    vector<int> *pid_list;
 
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;

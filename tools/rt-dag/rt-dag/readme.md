@@ -73,7 +73,8 @@ $> make -j 6
 One can change the compilation parameters with *ccmake*:
 
   - The parameter **LOG_LEVEL** can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
-  - The parameter **TASK_IMPL** indicates whether the DAG is implemented with threads or processes. The default value is threads.
+  - The parameter **TASK_IMPL** indicates whether the DAG is implemented with threads or processes. The default value is threads;
+  - The parameter **BUFFER_LINES** indicated the buffer depth os each DAG edge. It represents how many messages can be stores before the *push* method is blocked.
 
 # How to run
 
@@ -137,6 +138,8 @@ The IPC/Sync considered for process-based task modeling:
 The IPC/Sync used for thread-based task modeling: 
  - shared memory;
  - Synchronization: C++ mutex and condition_variable.
+
+The IPC for process and for threads are implemented in [circular_buffer.h](./include/circular_buffer.h) and [circular_shm.h](./include/circular_shm.h). The message sent on the edges is implemented in [shared_mem_type.h](./include/shared_mem_type.h).
 
 For more background information, please check Chapter 43: Interprocess Communication Overview, from [The Linux programming interface: a Linux and UNIX system programming handbook](https://www.oreilly.com/library/view/the-linux-programming/9781593272203/), by Michael Kerrisk.
 

@@ -111,14 +111,14 @@ public:
         //  - the same counts to 0 or
         //  - all processes that had previouly opened it, 
         //  had closed this sema
-        ret = sem_unlink(sema_name.c_str());
-        assert(ret==0);
+        //
+        // sem_unlink cannot be check sem_unlink because it would rise an error when
+        // the 2nd process (i.e. the sender or the receiver) tries to unlink this
+        sem_unlink(sema_name.c_str());
         sema_name = this->name + "_empty";
-        ret = sem_unlink(sema_name.c_str());
-        assert(ret==0);
+        sem_unlink(sema_name.c_str());
         sema_name = this->name + "_mutex";
-        ret = sem_unlink(sema_name.c_str());
-        assert(ret==0);
+        sem_unlink(sema_name.c_str());
         ret = sem_close(sem_full);
         assert(ret==0);
         ret = sem_close(sem_empty);
