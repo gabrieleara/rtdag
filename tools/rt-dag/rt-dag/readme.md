@@ -182,10 +182,10 @@ load the perf.dat file into hotspot.
  - [x] it seems to have some sync issue among the tasks. A temporary hack is to put some sleeps when the tasks are spawned;
  - [x] implement thread-level task modeling;
  - [x] implement shared-memory IPC strategy;
- - [] Improve end-to-end deadline checking: there is a potential sync error in the current implementation. If the DAG deadline is violated, the start time would start the next iteration, updating the shared variable. This way, the final task would loose the starting time of the previous iteration, missing the deadline violation. A queue of size one with blocking send could be a solution ?!?!
- - [] extend the data structure to pin down a task to a core;
- - [] extend the data structure to set the frequency of the islands;
- - [] check the power budget.
+ - [ ] Improve end-to-end deadline checking: there is a potential sync error in the current implementation. If the DAG deadline is violated, the start time would start the next iteration, updating the shared variable. This way, the final task would loose the starting time of the previous iteration, missing the deadline violation. A queue of size one with blocking send could be a solution ?!?!
+ - [ ] extend the data structure to pin down a task to a core;
+ - [ ] extend the data structure to set the frequency of the islands;
+ - [ ] check the power budget.
 
 ## Authors
 
