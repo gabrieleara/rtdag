@@ -7,10 +7,11 @@
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
 #define MAX_MSG_LEN 256
-#define REPETITIONS 5
+#define REPETITIONS 5 // the number of iterations of the complete DAG
 #define DAG_PERIOD 1'000'000 // in us 
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
-unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in us
+// The actual task computation time is decided randomly in runtime
+unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in us. 
 // The relative deadline of each task.
 // make sure that the sum of the longest path must be <= DAG_DEADLINE since
 // this consistency is not done here !!!
