@@ -16,6 +16,7 @@
 #include <iostream>
 #include <algorithm>  // find
 #include <sys/wait.h> // waitpid
+#include <sched.h>    // sched_setaffinity
 
 #include "dag.h"
 #include "shared_mem_type.h"
@@ -52,6 +53,7 @@ using ptr_edge = std::shared_ptr< edge_type >;
 
 typedef struct {
     string name;
+    unsigned affinity; // which core the task is mapped
     unsigned long wcet; // in us 
     unsigned long deadline; // in us
     vector< ptr_edge > in_buffers;
@@ -70,6 +72,7 @@ public:
             tasks[i].name = "n"+to_string(i);
             tasks[i].wcet = tasks_wcet[i];
             tasks[i].deadline = tasks_rel_deadline[i];
+            tasks[i].affinity = task_affinity[i];
             // create the edges/queues w unique names
             for(c=0;c<N_TASKS;++c){
                 if (adjacency_matrix[i][c]!=0){
@@ -139,6 +142,9 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
 //   std::hash<std::thread::id> myHashObject{};
 //   uint32_t threadID   __attribute__((unused)) = myHashObject(std::this_thread::get_id());
 //   LOG(INFO,"task %s created: pid = %u, ppid = %d\n", task_name, threadID, getppid());
+
+  // set task affinity
+  pin_to_core(task.affinity);
 
   // this is used only bu the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
@@ -229,7 +235,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
         dag_start_time.pop(last_dag_start);
         duration = now_long - last_dag_start;
         LOG(INFO,"task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
-        printf("task %s (%u): dag duration = %lu us\n\n", task_name, iter,  duration);
+        printf("task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
         if (duration > DAG_DEADLINE){
             printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
             assert(duration <= DAG_DEADLINE);
@@ -242,10 +248,15 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
 
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;
+        unsigned long thread_id;
         threads.push_back(thread(task_creator,seed, tasks[0], DAG_PERIOD));
+        thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
+        pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < N_TASKS; i++) {
             threads.push_back(std::thread(task_creator, seed, tasks[i], 0));
+            thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
+            pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
         }
         for (auto &th : threads) {
@@ -269,7 +280,6 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
         vector<int> local_task_id(*pid_list);
         while( local_task_id.size() != 0 ){
             int pid = (int)waitpid(-1, NULL, WNOHANG);
-            // printf("PIIIID %d - %d \n", pid, getpid());
             if( pid > 0 ){
                 // recover the task index w this PID to delete it from the list
                 auto task_it = find(local_task_id.begin(),local_task_id.end(), pid);
@@ -307,6 +317,37 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
             pid_list->push_back(pid);
             LOG(INFO,"parent %d forked task %d\n", getppid(), pid);
         }
+    }
+
+    static void pin_to_core(const unsigned cpu){
+        #if TASK_IMPL == 0 
+            pin_thread(cpu);
+        #else
+            pin_process(cpu);
+        #endif
+    }
+
+    // https://github.com/rigtorp/SPSCQueue/blob/master/src/SPSCQueueBenchmark.cpp
+    static void pin_thread(const unsigned cpu) {
+        // WARNINIG: there are situations that the max number of threads can be wrong
+        // https://stackoverflow.com/questions/57298045/maximum-number-of-threads-in-c
+        assert(cpu < std::thread::hardware_concurrency());
+        cpu_set_t cpuset;
+        int ret;
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu, &cpuset);
+        ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+        assert(ret==0);
+    }
+
+    static void pin_process(const unsigned cpu){
+        cpu_set_t  mask;
+        int ret;
+        CPU_ZERO(&mask);
+        CPU_SET(0, &mask);
+        CPU_SET(cpu, &mask);
+        ret = sched_setaffinity(getpid(), sizeof(mask), &mask);
+        assert(ret==0);
     }
 
 };

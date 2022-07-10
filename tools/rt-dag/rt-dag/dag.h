@@ -7,7 +7,7 @@
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
 #define MAX_MSG_LEN 256
-#define REPETITIONS 5 // the number of iterations of the complete DAG
+#define REPETITIONS 50 // the number of iterations of the complete DAG
 #define DAG_PERIOD 1'000'000 // in us 
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
 // The actual task computation time is decided randomly in runtime
@@ -16,6 +16,8 @@ unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in us.
 // make sure that the sum of the longest path must be <= DAG_DEADLINE since
 // this consistency is not done here !!!
 unsigned tasks_rel_deadline[N_TASKS] = {100'000,800'000,800'000,100'000}; // in us
+// pin threads/processes onto the specified cores
+unsigned task_affinity[N_TASKS] = {1,2,3,1};
 // values != 0 means there is a link from task l (line) to task c(column)
 // amount of bytes sent byeach edge
 unsigned adjacency_matrix[N_TASKS][N_TASKS] = {

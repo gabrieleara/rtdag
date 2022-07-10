@@ -50,6 +50,8 @@ is described as:
 unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in us. 
 // The relative deadline of each task.
 unsigned tasks_rel_deadline[N_TASKS] = {100'000,800'000,800'000,100'000}; // in us
+// pin threads/processes onto the specified cores
+unsigned task_affinity[N_TASKS] = {1,2,3,1};
 // values != 0 means there is a link from task l (line) to task c(column)
 // amount of bytes sent byeach edge
 unsigned adjacency_matrix[N_TASKS][N_TASKS] = {
@@ -107,6 +109,25 @@ task n2 (1): task duration 159147 us
 ```
 
 The number in parenthesis represents the iteration. Note that, since the tasks are parallel processes, the iteration order when logging can be a bit mixed up. Note also that the 1st task is the only periodic task in the DAG, following the DAG_PERIOD attribute. The execution time of all tasks starts as soon as they receive all required inputs and ends once they have sent all messages. In other words, the *task duration* accounts for the task computation plus its messages sent. It does not account for the waiting time for incoming messages since they are suspended.
+
+# Main features
+
+## DAG deadline checking
+
+Both the task relative deadline and the DAG end-to-end deadline are checked during execution.
+The former only prints a warning message while the later interrupts the application.
+
+## Task affinity
+
+To check the CPU running each task, run in a separate terminal:
+
+```
+$> watch -tdn0.5 ps -mo pid,tid,%cpu,psr -p \`pgrep rt_dag\`
+```
+
+Generating an output similar to this one:
+
+![CPU affinity](./doc/cpu_affinity.png "CPU affinity example")
 
 # Design decisions
 
