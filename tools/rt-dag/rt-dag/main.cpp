@@ -58,27 +58,18 @@ using namespace std;
 // unsigned long dag_start_time; 
 vector<int> pid_list;
 
-// https://github.com/rigtorp/SPSCQueue/blob/master/src/SPSCQueueBenchmark.cpp
-void pinThread(int cpu) {
-  if (cpu < 0) {
-    return;
-  }
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(cpu, &cpuset);
-  if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) ==
-      -1) {
-    perror("pthread_setaffinity_no");
-    exit(1);
-  }
-}
-
 void exit_all(int sigid){
+#if TASK_IMPL == 0 
+    printf("Killing all threads\n");
+    // TODO: how to kill the threads without access to the thread list ?
+#else
     printf("Killing all tasks\n");
-    unsigned i;
+    unsigned i,ret;
     for(i=0;i<pid_list.size();++i){
-        kill(pid_list[i],SIGKILL);
+        ret = kill(pid_list[i],SIGKILL);
+        assert(ret==0);
     }
+#endif    
     printf("Exting\n");
     exit(0);
 }
