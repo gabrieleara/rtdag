@@ -72,8 +72,8 @@ $> make -j 6
 
 One can change the compilation parameters with *ccmake*:
 
-    - The parameter *LOG_LEVEL* can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
-    - The parameter "TASK_IMPL* indicates whether the DAG is implemented with threads or processes. The default value is threads.
+  - The parameter *LOG_LEVEL* can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
+  - The parameter "TASK_IMPL* indicates whether the DAG is implemented with threads or processes. The default value is threads.
 
 # How to run
 
@@ -142,9 +142,9 @@ For more background information, please check Chapter 43: Interprocess Communica
 
 # Comparison with other tools
 
-[rt-app](https://github.com/scheduler-tools/rt-app), as defined by the authors, is a test application that starts multiple periodic threads in order to simulate a real-time periodic load.
+ - [rt-app](https://github.com/scheduler-tools/rt-app), as defined by the authors, is a test application that starts multiple periodic threads in order to simulate a real-time periodic load.
 
-*cyclictest* is for testing the OS response time under a certain task set of periodic real-time tasks modeled as [fixed priorities tasks](https://wiki.linuxfoundation.org/realtime/documentation/howto/tools/cyclictest/start) or [deadline-based tasks](https://man.archlinux.org/man/community/rt-tests/cyclicdeadline.8.en).
+ - *cyclictest* is for testing the OS response time under a certain task set of periodic real-time tasks modeled as [fixed priorities tasks](https://wiki.linuxfoundation.org/realtime/documentation/howto/tools/cyclictest/start) or [deadline-based tasks](https://man.archlinux.org/man/community/rt-tests/cyclicdeadline.8.en).
 
 I hope that, in the future, *rt-dag* could do something similar, but the task set being modeled as a DAG, with it's intrinsic task dependencies. 
 
@@ -167,7 +167,7 @@ load the perf.dat file into hotspot.
 
 # FAQ
 
- 1. why not use middlewares like DDS, ROS, OpenMP, corba-like, etc ? 
+ 1. why not use middlewares like DDS, ROS, OpenMP, etc ? 
    - These could be future updates, but be aware that they usually have internal scheduling policies on top of the OS scheduling that could complicate realtime analyses. As an initial step, to simplify things, we want to support Linux OS-only resources, with no external dependencies. 
  2. ... 
 
@@ -180,10 +180,10 @@ load the perf.dat file into hotspot.
 
  -[x] the amount of data sent in the messages still don't correspond to the DAG description;
  -[x] it seems to have some sync issue among the tasks. A temporary hack is to put some sleeps when the tasks are spawned;
- - Improve end-to-end deadline checking: there is a potential sync error in the current implementation. If the DAG deadline is violated, the start time would start the next iteration, updating the shared variable. This way, the final task would loose the starting time of the previous iteration, missing the deadline violation. A queue of size one with blocking send could be a solution ?!?!
- - extend the data structure to pin down a task to a core;
- - extend the data structure to set the frequency of the islands;
- - check the power budget;
+ -[] Improve end-to-end deadline checking: there is a potential sync error in the current implementation. If the DAG deadline is violated, the start time would start the next iteration, updating the shared variable. This way, the final task would loose the starting time of the previous iteration, missing the deadline violation. A queue of size one with blocking send could be a solution ?!?!
+ -[] extend the data structure to pin down a task to a core;
+ -[] extend the data structure to set the frequency of the islands;
+ -[] check the power budget;
  -[x] implement thread-level task modeling;
  -[x] implement shared-memory IPC strategy.
 
