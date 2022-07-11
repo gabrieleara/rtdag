@@ -95,20 +95,48 @@ n2, 200000
 n3, 50000
  ins: n1_n3(32), n2_n3(52), 
  outs: 
-Task n0 pid 16768 forked
-Task n1 pid 16769 forked
-Task n2 pid 16770 forked
-Task n3 pid 16771 forked
-task n0 (0): task duration 39855 us
-task n2 (0): task duration 159134 us
-task n1 (0): task duration 398183 us
-task n3 (0): task duration 39791 us
-task n0 (1): task duration 39826 us
-task n2 (1): task duration 159147 us
-...
+Task n0 pid 30999 forked
+Task n1 pid 31000 forked
+Task n2 pid 31001 forked
+Task n3 pid 31002 forked
+task n0 (0): task duration 52477 us
+task n0 (0): task duration 52477 > wcet 50000!
+task n2 (0): task duration 159263 us
+task n1 (0): task duration 397947 us
+task n3 (0): task duration 39881 us
+task n3 (0): dag  duration 477777 us
+
+task n0 (1): task duration 39803 us
+task n2 (1): task duration 159123 us
+task n1 (1): task duration 398015 us
+task n3 (1): task duration 39842 us
+task n3 (1): dag  duration 477754 us
+
+task n0 (2): task duration 39887 us
+task n2 (2): task duration 159198 us
+task n1 (2): task duration 397777 us
+task n3 (2): task duration 39748 us
+task n3 (2): dag  duration 477465 us
+
+task n0 (3): task duration 39793 us
+task n2 (3): task duration 159193 us
+task n1 (3): task duration 397853 us
+task n3 (3): task duration 39731 us
+task n3 (3): dag  duration 477476 us
+
+task n0 (4): task duration 39761 us
+task n2 (4): task duration 159363 us
+task n1 (4): task duration 397946 us
+task n3 (4): task duration 39762 us
+task n3 (4): dag  duration 477557 us
+
+Task n1 pid 31000 killed
+Task n2 pid 31001 killed
+Task n3 pid 31002 killed
+Task n0 pid 30999 killed
 ```
 
-The number in parenthesis represents the iteration. Note that, since the tasks are parallel processes, the iteration order when logging can be a bit mixed up. Note also that the 1st task is the only periodic task in the DAG, following the DAG_PERIOD attribute. The execution time of all tasks starts as soon as they receive all required inputs and ends once they have sent all messages. In other words, the *task duration* accounts for the task computation plus its messages sent. It does not account for the waiting time for incoming messages since they are suspended.
+The number in parenthesis represents the iteration. Note that, since the tasks are parallel processes, the iteration order when logging can be a bit mixed up. Note also that the 1st task is the only periodic task in the DAG, following the DAG_PERIOD attribute. The execution time of all tasks starts as soon as they receive all required inputs and ends once they have sent all messages. In other words, the *task duration* accounts for the task computation plus its messages sent. It does not account for the waiting time for incoming messages since they are suspended. The *dag duration* represents the sum of execution times of the DAG critical path.
 
 # Main features
 
@@ -206,8 +234,9 @@ load the perf.dat file into hotspot.
  - [x] it seems to have some sync issue among the tasks. A temporary hack is to put some sleeps when the tasks are spawned;
  - [x] implement thread-level task modeling;
  - [x] implement shared-memory IPC strategy;
- - [ ] Improve end-to-end deadline checking: there is a potential sync error in the current implementation. If the DAG deadline is violated, the start time would start the next iteration, updating the shared variable. This way, the final task would loose the starting time of the previous iteration, missing the deadline violation. A queue of size one with blocking send could be a solution ?!?!
- - [ ] extend the data structure to pin down a task to a core;
+ - [X] Implement end-to-end deadline checking;
+ - [X] extend the data structure to pin down a task to a core;
+    - [ ] pin down a task to a core is not working in process mode;
  - [ ] extend the data structure to set the frequency of the islands;
  - [ ] check the power budget.
 

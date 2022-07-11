@@ -7,7 +7,7 @@
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
 #define MAX_MSG_LEN 256
-#define REPETITIONS 50 // the number of iterations of the complete DAG
+#define REPETITIONS 5 // the number of iterations of the complete DAG
 #define DAG_PERIOD 1'000'000 // in us 
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
 // The actual task computation time is decided randomly in runtime
