@@ -69,7 +69,7 @@ public:
         pid_list = nullptr;
         tasks.resize(N_TASKS);
         for(i=0;i<N_TASKS;++i){
-            tasks[i].name = "n"+to_string(i);
+            tasks[i].name = tasks_name[i];
             tasks[i].wcet = tasks_wcet[i];
             tasks[i].deadline = tasks_rel_deadline[i];
             tasks[i].affinity = task_affinity[i];
@@ -218,10 +218,11 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     duration = now_long - task_start_time;
     printf("task %s (%u): task duration %lu us\n", task_name, iter, duration);
     // check the duration of the tasks if this is in conformance w their wcet.
-    if (duration > task.wcet){
+    // tasks with wcet == 0 or deadline==0, like initial and final tasks, are not checked 
+    if (duration > task.wcet && task.wcet > 0){
         printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, duration, task.wcet);
     }
-    if (duration > task.deadline){
+    if (duration > task.deadline && task.deadline > 0){
         printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
         //TODO: stop or continue ?
     }
