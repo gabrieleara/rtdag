@@ -38,29 +38,90 @@ For example, a DAG like this one:
 is described as:
 
 ```C++
+#ifndef DAG_H_
+#define DAG_H_
+
+// global defs
 #define N_TASKS 4
 #define N_EDGES 4
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
 #define MAX_MSG_LEN 256
-#define REPETITIONS 5 // the number of iterations of the complete DAG
-#define DAG_PERIOD 1'000'000 // in us 
-#define DAG_DEADLINE DAG_PERIOD 
-// The actual task computation time is decided randomly in runtime
-unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in us. 
+#define REPETITIONS 50 // the number of iterations of the complete DAG
+#define DAG_PERIOD 10'000 // in us 
+#define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
+// The actual task computation workload in 'ticks'. a tick is equivalent to a simple logic operation.
+// Note that tick is not time ! it's a kind of workload unit
+const unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in ticks. 
 // The relative deadline of each task.
-unsigned tasks_rel_deadline[N_TASKS] = {100'000,800'000,800'000,100'000}; // in us
+// make sure that the sum of the longest path must be <= DAG_DEADLINE since
+// this consistency is not done here !!!
+const unsigned tasks_rel_deadline[N_TASKS] = {1'000,8'000,8'000,1'000}; // in us
 // pin threads/processes onto the specified cores
-unsigned task_affinity[N_TASKS] = {1,2,3,1};
+// the values are the cpu ids. mask is currently not supported
+const unsigned task_affinity[N_TASKS] = {1,2,3,1};
 // values != 0 means there is a link from task l (line) to task c(column)
 // amount of bytes sent byeach edge
-unsigned adjacency_matrix[N_TASKS][N_TASKS] = {
+const unsigned adjacency_matrix[N_TASKS][N_TASKS] = {
     {0,30,50, 0},
     {0, 0, 0,32},
     {0, 0, 0,52},
     {0, 0, 0, 0},
 };
+#endif // DAG_H_
 ```
+
+This example, when running on a ODROID-XU4 board gives the following results when the little island set to 500MHz:
+
+```
+...
+task n0 (47): task duration 518 us
+task n2 (47): task duration 1595 us
+task n1 (47): task duration 4137 us
+task n3 (47): task duration 399 us
+task n3 (47): dag  duration 5123 us
+
+task n0 (48): task duration 453 us
+task n2 (48): task duration 1649 us
+task n1 (48): task duration 4141 us
+task n3 (48): task duration 399 us
+task n3 (48): dag  duration 5060 us
+
+task n0 (49): task duration 511 us
+task n2 (49): task duration 1595 us
+task n1 (49): task duration 4202 us
+task n3 (49): task duration 400 us
+task n3 (49): dag  duration 5192 us
+```
+
+and when the little island set to 200MHz:
+
+```
+...
+task n0 (0): task duration 1197 us
+ERROR: task n0 (0): task duration 1197 > deadline 1000!
+task n2 (0): task duration 4121 us
+task n1 (0): task duration 10626 us
+ERROR: task n1 (0): task duration 10626 > deadline 8000!
+task n3 (0): task duration 999 us
+task n3 (0): dag  duration 15600 us
+
+ERROR: dag deadline violation detected in iteration 0. duration 15600 us
+rt_dag:  Assertion `duration <= DAG_DEADLINE' failed.
+```
+
+Summarizing the results, with avarege results
+
+|     | at 500Mhz | at 200Mhz |
+|-----|----------:|----------:|
+| n0  |     500us |    1200us |
+| n1  |    4100us |   10400us |
+| n2  |    1500us |    4100us |
+| n3  |     400us |    1000us |
+| dag |    5100us |   12900us |
+
+When running at 500Mhz, there was no relative or end-to-end deadline violation.
+However, when running at 200Mhz, tasks n0 and n1 missed their relative deadlines. n3 almost missed its relative deadline. The application aborted because the end-to-end deadline was also missed. It took 15600 us but the deadline is 10000 us.
 
 # How to compile
 
@@ -230,16 +291,16 @@ load the perf.dat file into hotspot.
 
 # TODO
 
- - [x] the amount of data sent in the messages still don't correspond to the DAG description;
- - [x] it seems to have some sync issue among the tasks. A temporary hack is to put some sleeps when the tasks are spawned;
- - [x] implement thread-level task modeling;
- - [x] implement shared-memory IPC strategy;
+ - [x] The amount of data sent in the messages still don't correspond to the DAG description;
+ - [x] It seems to have some sync issue among the tasks. A temporary hack is to put some sleeps when the tasks are spawned;
+ - [x] Implement thread-level task modeling;
+ - [x] Implement shared-memory IPC strategy;
  - [X] Implement end-to-end deadline checking;
- - [X] extend the data structure to pin down a task to a core;
-    - [X] pin down a task to a core is not working in process mode;
-    - [ ] support affinity masks in the task_affinity vector
- - [ ] extend the data structure to set the frequency of the islands;
- - [ ] check the power budget.
+ - [X] Extend the data structure to pin down a task to a core;
+    - [X] Pin down a task to a core is not working in process mode;
+    - [ ] Support affinity masks in the task_affinity vector
+ - [ ] Extend the data structure to set the frequency of the islands;
+ - [ ] Check the power budget.
 
 ## Authors
 
