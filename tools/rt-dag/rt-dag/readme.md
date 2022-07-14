@@ -236,7 +236,8 @@ load the perf.dat file into hotspot.
  - [x] implement shared-memory IPC strategy;
  - [X] Implement end-to-end deadline checking;
  - [X] extend the data structure to pin down a task to a core;
-    - [ ] pin down a task to a core is not working in process mode;
+    - [X] pin down a task to a core is not working in process mode;
+    - [ ] support affinity masks in the task_affinity vector
  - [ ] extend the data structure to set the frequency of the islands;
  - [ ] check the power budget.
 

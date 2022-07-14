@@ -344,7 +344,6 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
         cpu_set_t  mask;
         int ret;
         CPU_ZERO(&mask);
-        CPU_SET(0, &mask);
         CPU_SET(cpu, &mask);
         ret = sched_setaffinity(getpid(), sizeof(mask), &mask);
         assert(ret==0);
