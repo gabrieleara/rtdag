@@ -146,6 +146,8 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
   // set task affinity
   pin_to_core(task.affinity);
 
+  // TODO: set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
+
   // this is used only bu the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
 
