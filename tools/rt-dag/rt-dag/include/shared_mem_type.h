@@ -20,7 +20,7 @@ public:
     void set(const char * name, const unsigned msg_num, const unsigned msg_size){
         assert (msg_size <= MAX_SHM_BUFFER_SIZE);
         // build the default message
-        sprintf(data,"Message from '%s', id: %u",name, msg_num);
+        snprintf(data, MAX_SHM_BUFFER_SIZE, "Message from '%s', id: %u",name, msg_num);
         // make sure that MAX_SHM_BUFFER_SIZE was not set too low
         assert (this->size() <= MAX_SHM_BUFFER_SIZE);
         if (this->size() >= msg_size){
