@@ -79,7 +79,7 @@ public:
                     // TODO: the edges are now implementing 1:1 communication, 
                     // but it would be possible to have multiple readers
                     ptr_edge new_edge(new edge_type);
-                    sprintf(new_edge->name, "n%u_n%u", i,c);
+                    snprintf(new_edge->name, 32, "n%u_n%u", i,c);
                     new_edge->buff = (std::unique_ptr< cbuffer >) new cbuffer(new_edge->name);
                     // this message size includes the string terminator, thus, threre is no +1 here
                     new_edge->size = adjacency_matrix[i][c];
