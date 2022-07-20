@@ -65,13 +65,13 @@ public:
         char shm_name[32];
         assert(this->name.size() > 0);
         for(unsigned i =0; i < TElemCount;++i){
-            sprintf(shm_name,"/%s_%u",this->name.c_str(),i);
+            snprintf(shm_name,32,"/%s_%u",this->name.c_str(),i);
             assert(strlen(shm_name) < 31);
             // save the pointer to the shared memory
             this->buf[i] = (T*)allocate_shm(shm_name,sizeof(T));
         }
 
-        sprintf(shm_name,"%s_ht",this->name.c_str());
+        snprintf(shm_name,32,"%s_ht",this->name.c_str());
         ht = (head_tail_type*)allocate_shm(shm_name,sizeof(head_tail_type));
         
         // create the semas

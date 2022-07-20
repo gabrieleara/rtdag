@@ -130,7 +130,7 @@ int main() {
             // but it would be possible to have multiple readers
             //new_edge = new edge_type;
             std::shared_ptr<edge_type> new_edge(new edge_type);
-            sprintf(new_edge->name, "n%u_n%u", i,c);
+            snprintf(new_edge->name, 32, "n%u_n%u", i,c);
             printf("creating buffer '%s' of size %u\n", new_edge->name, adjacency_matrix[i][c]);
             new_edge->size = adjacency_matrix[i][c]+1;
             tasks[i].out_buffers.push_back(new_edge);
