@@ -96,7 +96,8 @@ public:
     }
 
     ~circular_shm(){
-        int ret __attribute__((unused)); // unsed in release mode
+        int ret;
+        (void) ret; // unused in release mode
         // unmap the shared memories
         for(unsigned i =0; i < TElemCount;++i){
             ret = munmap((void*)this->buf[i], sizeof(T)*TElemCount);
@@ -128,7 +129,8 @@ public:
     }    
 
     void push(const T& data) noexcept{
-        int ret __attribute__((unused)); // unsed in release mode
+        int ret;
+        (void) ret; // unused in release mode
         // debug("push init");
         ret = sem_wait(sem_empty);
         assert(ret==0);
@@ -146,7 +148,8 @@ public:
     }
 
     void pop(T &data) noexcept{
-        int ret __attribute__((unused)); // unsed in release mode
+        int ret;
+        (void) ret; // unused in release mode
         // debug("pop init");
         ret = sem_wait(sem_full);
         assert(ret==0);
@@ -203,7 +206,8 @@ private:
 
     void debug(const char * func_name) const{
         int value; 
-        int ret __attribute__((unused)); // unsed in release mode
+        int ret;
+        (void) ret; // unused in release mode
         ret = sem_getvalue(sem_empty, &value);
         assert(ret==0);
         printf("[%s] Empty semaphore is %d\n", func_name, value);
