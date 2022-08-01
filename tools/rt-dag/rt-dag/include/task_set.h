@@ -167,19 +167,22 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
   unsigned long now_long, duration;
   unsigned long task_start_time;
 
-  // file to save the task execution time
-  string exec_time_fname = dagset_name;  
-  exec_time_fname += "/";
-  exec_time_fname += task.name;
-  exec_time_fname += ".log";
+  // file to save the task execution time. the dummy tasks are not included
+  string exec_time_fname;
   ofstream exec_time_f;
-  exec_time_f.open(exec_time_fname, std::ios_base::app);
-  if (! exec_time_f.is_open()){
-    printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
-    exit(1);
+  if (task.deadline > 0){
+    exec_time_fname = dagset_name;  
+    exec_time_fname += "/";
+    exec_time_fname += task.name;
+    exec_time_fname += ".log";
+    exec_time_f.open(exec_time_fname, std::ios_base::app);
+    if (! exec_time_f.is_open()){
+        printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+        exit(1);
+    }
+    // the 1st line is the task relative deadline. all the following lines are actual execution times
+    exec_time_f << task.deadline << endl;
   }
-  // the 1st line is the task relative deadline. all the following lines are actual execution times
-  exec_time_f << task.deadline << endl;
 
   // file to save the dag execution time, created only by the end task
   ofstream dag_exec_time_f;
@@ -248,7 +251,9 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     now_long = micros();
     duration = now_long - task_start_time;
     printf("task %s (%u): task duration %lu us\n", task_name, iter, duration);
-    exec_time_f << duration << endl;
+    if (task.deadline > 0){
+        exec_time_f << duration << endl;
+    }
     // check the duration of the tasks if this is in conformance w their wcet.
     // tasks with wcet == 0 or deadline==0, like initial and final tasks, are not checked 
     if (duration > task.wcet && task.wcet > 0){
@@ -279,7 +284,12 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     }
     ++iter;
   }
-
+  if (task.deadline > 0){
+    exec_time_f.close();
+  }
+  if (task.out_buffers.size() == 0){
+    dag_exec_time_f.close();
+  }
 }
 
     void thread_launcher(unsigned seed){
