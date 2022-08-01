@@ -38,6 +38,10 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <sys/types.h> // to create the directory
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <unistd.h> // getpid
 
 #include <log.h>
@@ -85,6 +89,12 @@ int main() {
   // or set manually a constant seed to repeat the same sequence
   unsigned seed = 123456;
   cout << "SEED: " << seed << endl;  
+
+  // create the directory where execution time are saved
+  struct stat st = {0};
+  if (stat(dagset_name, &st) == -1) {
+    mkdir(dagset_name, 0700);
+  }
 
   // build the TaskSet class of data from dag.h
   TaskSet task_set;

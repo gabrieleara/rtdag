@@ -1,6 +1,9 @@
 #ifndef DAG_H_
 #define DAG_H_
 
+// dagset_name and tasks_name are used to save the execution times into files organized as: 
+// ./dagset_name/tasks_name.log
+const char * dagset_name = "rnd00";
 #define N_TASKS 6
 #define N_EDGES 6
 #define MAX_OUT_EDGES_PER_TASK 2

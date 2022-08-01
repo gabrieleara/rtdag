@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <algorithm>  // find
 #include <sys/wait.h> // waitpid
 #include <sched.h>    // sched_setaffinity
@@ -148,7 +149,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
 
   // TODO: set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
 
-  // this is used only bu the start and end tasks to check the end-to-end DAG deadline  
+  // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
 
   // each task has its own rnd engine to limit blocking for shared resources.
@@ -165,6 +166,36 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
 
   unsigned long now_long, duration;
   unsigned long task_start_time;
+
+  // file to save the task execution time
+  string exec_time_fname = dagset_name;  
+  exec_time_fname += "/";
+  exec_time_fname += task.name;
+  exec_time_fname += ".log";
+  ofstream exec_time_f;
+  exec_time_f.open(exec_time_fname, std::ios_base::app);
+  if (! exec_time_f.is_open()){
+    printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+    exit(1);
+  }
+  // the 1st line is the task relative deadline. all the following lines are actual execution times
+  exec_time_f << task.deadline << endl;
+
+  // file to save the dag execution time, created only by the end task
+  ofstream dag_exec_time_f;
+  if (task.out_buffers.size() == 0){
+    exec_time_fname = dagset_name;  
+    exec_time_fname += "/";
+    exec_time_fname += dagset_name;
+    exec_time_fname += ".log";
+    dag_exec_time_f.open(exec_time_fname, std::ios_base::app);
+    if (! dag_exec_time_f.is_open()){
+        printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+        exit(1);
+    }
+    // the 1st line is the task relative deadline. all the following lines are actual execution times
+    dag_exec_time_f << DAG_DEADLINE << endl;
+  }
 
   // local copy of the incomming data. this copy is not required since it is shared var,
   // but it is enforced to comply with Amalthea model 
@@ -217,6 +248,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     now_long = micros();
     duration = now_long - task_start_time;
     printf("task %s (%u): task duration %lu us\n", task_name, iter, duration);
+    exec_time_f << duration << endl;
     // check the duration of the tasks if this is in conformance w their wcet.
     // tasks with wcet == 0 or deadline==0, like initial and final tasks, are not checked 
     if (duration > task.wcet && task.wcet > 0){
@@ -239,6 +271,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
         duration = now_long - last_dag_start;
         LOG(INFO,"task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
         printf("task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
+        dag_exec_time_f << duration << endl;
         if (duration > DAG_DEADLINE){
             printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
             assert(duration <= DAG_DEADLINE);
