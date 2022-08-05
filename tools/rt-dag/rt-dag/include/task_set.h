@@ -18,11 +18,17 @@
 #include <algorithm>  // find
 #include <sys/wait.h> // waitpid
 #include <sched.h>    // sched_setaffinity
+// to set the sched_deadline parameters
+#include <linux/kernel.h>
+#include <linux/unistd.h>
+// #include <time.h>
+#include <linux/types.h>
 
 #include "dag.h"
 #include "shared_mem_type.h"
 #include "circular_buffer.h"
 #include "circular_shm.h"
+#include "sched_defs.h"
 
 using namespace std;
 
@@ -147,7 +153,8 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
   // set task affinity
   pin_to_core(task.affinity);
 
-  // TODO: set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
+  // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
+  set_sched_deadline(task.wcet, task.deadline, task.deadline);
 
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
@@ -362,6 +369,23 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
         }else{
             pid_list->push_back(pid);
             LOG(INFO,"parent %d forked task %d\n", getppid(), pid);
+        }
+    }
+
+    static void set_sched_deadline(unsigned long runtime, unsigned long deadline, unsigned long period ){
+        struct sched_attr sa ;
+        if (sched_getattr(0, &sa, sizeof(sa), 0) < 0) {
+            cerr << "Error sched_getattr()" << endl;
+            exit(1);
+        }
+        sa.sched_policy   = SCHED_DEADLINE;
+        // time in microseconds
+        sa.sched_runtime  = runtime;
+        sa.sched_deadline = deadline;
+        sa.sched_period   = period;
+        if (sched_setattr( 0, &sa, 0) < 0)
+        {
+            cerr << "Error sched_setattr()" << endl;
         }
     }
 
