@@ -21,7 +21,6 @@
 #define __NR_sched_setattr      274
 #define __NR_sched_getattr      275
 #endif
-#endif
 
 #define sched_setattr(pid, attr, flags) syscall(__NR_sched_setattr, pid, attr, flags)
 #define sched_getattr(pid, attr, size, flags) syscall(__NR_sched_getattr, pid, attr, size, flags)
