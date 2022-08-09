@@ -70,10 +70,10 @@ typedef struct {
 using ptr_edge = std::shared_ptr< edge_type >;
 
 typedef struct {
-    string name;
-    unsigned affinity; // which core the task is mapped
-    unsigned long wcet; // in us 
-    unsigned long deadline; // in us
+    // string name;
+    // unsigned affinity; // which core the task is mapped
+    // unsigned long wcet; // in us 
+    // unsigned long deadline; // in us
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
 } task_type;
@@ -81,20 +81,21 @@ typedef struct {
 class TaskSet{
 public:
     vector< task_type > tasks;
-    input_header * input;
+    // input_header * input;
+    std::unique_ptr< input_header > input;
 
     TaskSet(){
         unsigned i,c;
         pid_list = nullptr;
         //const char * in_name= "";
         //input = (std::unique_ptr< input_wrapper >) new input_header(in_name);
-        input = new input_header("");
+        input = (std::unique_ptr< input_header >) new input_header("");
         tasks.resize(N_TASKS);
         for(i=0;i<N_TASKS;++i){
-            tasks[i].name = tasks_name[i];
-            tasks[i].wcet = tasks_wcet[i];
-            tasks[i].deadline = tasks_rel_deadline[i];
-            tasks[i].affinity = task_affinity[i];
+            // tasks[i].name = tasks_name[i];
+            // tasks[i].wcet = tasks_wcet[i];
+            // tasks[i].deadline = tasks_rel_deadline[i];
+            // tasks[i].affinity = task_affinity[i];
             // create the edges/queues w unique names
             for(c=0;c<N_TASKS;++c){
                 if (adjacency_matrix[i][c]!=0){
@@ -118,7 +119,7 @@ public:
     void print() const{
         unsigned i,c;
         for(i=0;i<N_TASKS;++i){
-            cout << tasks[i].name << ", " << tasks[i].wcet << endl;
+            cout << input->get_tasks_name(i) << ", " << input->get_tasks_wcet(i) << endl;
             cout << " ins: ";
             for(c=0;c<tasks[i].in_buffers.size();++c)
                 cout << tasks[i].in_buffers[c]->name << "(" << tasks[i].in_buffers[c]->size << "), ";
@@ -159,8 +160,8 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
   unsigned long execution_time;
   float rnd_val;
   char task_name[32];
-  strcpy(task_name, task.name.c_str());
-  assert((period_ns != 0 && period_ns>task.wcet) || period_ns == 0);
+  strcpy(task_name, input.get_tasks_name(task_id));
+  assert((period_ns != 0 && period_ns>input.get_tasks_wcet(task_id)) || period_ns == 0);
 
   // randomize the start time of each task
 //   std::mt19937_64 eng{std::random_device{}()};  // or seed however you want
@@ -172,17 +173,17 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
 //   LOG(INFO,"task %s created: pid = %u, ppid = %d\n", task_name, threadID, getppid());
 
   // set task affinity
-  pin_to_core(task.affinity);
+  pin_to_core(input.get_tasks_affinity(task_id));
 
   // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
-  set_sched_deadline(task.wcet, task.deadline, task.deadline);
+  set_sched_deadline(input.get_tasks_wcet(task_id), input.get_tasks_rel_deadline(task_id), input.get_tasks_rel_deadline(task_id));
 
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
 
   // each task has its own rnd engine to limit blocking for shared resources.
   // the thread seed is built by summin up the main seed + a hash of the task name, which is unique
-  seed+= std::hash<std::string>{}(task.name);
+  seed+= std::hash<std::string>{}(task_name);
   std::mt19937_64 engine(static_cast<uint64_t> (seed));
   // each task might use different distributions
   std::uniform_real_distribution<double> zeroToOne(0.0, 1.0);
@@ -198,10 +199,10 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
   // file to save the task execution time. the dummy tasks are not included
   string exec_time_fname;
   ofstream exec_time_f;
-  if (task.deadline > 0){
-    exec_time_fname = dagset_name;  
+  if (input.get_tasks_rel_deadline(task_id) > 0){
+    exec_time_fname = input.get_dagset_name();  
     exec_time_fname += "/";
-    exec_time_fname += task.name;
+    exec_time_fname += input.get_tasks_name(task_id);
     exec_time_fname += ".log";
     exec_time_f.open(exec_time_fname, std::ios_base::app);
     if (! exec_time_f.is_open()){
@@ -209,7 +210,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
         exit(1);
     }
     // the 1st line is the task relative deadline. all the following lines are actual execution times
-    exec_time_f << task.deadline << endl;
+    exec_time_f << input.get_tasks_rel_deadline(task_id) << endl;
   }
 
   // file to save the dag execution time, created only by the end task
@@ -255,7 +256,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     rnd_val = zeroToOne(engine);
     // 0.98 is used to reduce the actual execution by 2% such that, hopefully, the wcet is not always violated 
     // TODO: there must be a better way to do this
-    float wcet = ((float)task.wcet)*0.98f;
+    float wcet = ((float)input.get_tasks_wcet(task_id))*0.98f;
     execution_time = 4.0f/5.0f*wcet + 1.0f/5.0f*rnd_val;
     LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
     task_start_time = (unsigned long) micros(); 
@@ -279,16 +280,16 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     now_long = micros();
     duration = now_long - task_start_time;
     printf("task %s (%u): task duration %lu us\n", task_name, iter, duration);
-    if (task.deadline > 0){
+    if (input.get_tasks_rel_deadline(task_id) > 0){
         exec_time_f << duration << endl;
     }
     // check the duration of the tasks if this is in conformance w their wcet.
     // tasks with wcet == 0 or deadline==0, like initial and final tasks, are not checked 
-    if (duration > task.wcet && task.wcet > 0){
-        printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, duration, task.wcet);
+    if (duration > input.get_tasks_wcet(task_id) && input.get_tasks_wcet(task_id) > 0){
+        printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, duration, input.get_tasks_wcet(task_id));
     }
-    if (duration > task.deadline && task.deadline > 0){
-        printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
+    if (duration > input.get_tasks_rel_deadline(task_id) && input.get_tasks_rel_deadline(task_id) > 0){
+        printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, input.get_tasks_rel_deadline(task_id));
         //TODO: stop or continue ?
     }
 
@@ -312,7 +313,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     }
     ++iter;
   }
-  if (task.deadline > 0){
+  if (input.get_tasks_rel_deadline(task_id) > 0){
     exec_time_f.close();
   }
   if (task.out_buffers.size() == 0){
@@ -366,8 +367,8 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
                 }
                 // this find is done only to get the name of the killed task 
                 task_it = find(pid_list->begin(),pid_list->end(), pid);
-                unsigned task_idx = task_it - pid_list->begin();                    
-                printf("Task %s pid %d killed\n", tasks[task_idx].name.c_str(), pid);
+                // TODO unsigned task_idx = task_it - pid_list->begin();                    
+                // printf("Task %s pid %d killed\n", tasks[task_idx].name.c_str(), pid);
             }else if( pid == 0 ){
                 sleep(1);
             }else{
@@ -385,7 +386,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
             exit(-1);
         }
         if (pid == 0){
-            printf("Task %s pid %d forked\n",task.name.c_str(),getpid());
+            //TODO printf("Task %s pid %d forked\n",task.name.c_str(),getpid());
             //task_creator(seed, task, period);
             exit(0);
         }else{
