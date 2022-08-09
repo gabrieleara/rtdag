@@ -60,6 +60,7 @@ using vet_cbuffer = std::vector< ptr_cbuffer >;
 // POSIX shared memory are used both for thread/process task implementation
 using dag_deadline_type = circular_shm <unsigned long,1>;
 
+/*
 typedef struct {
     // the only reason this is pointer is that, when using circular_shm, it requries to pass the shared mem name
     std::unique_ptr< cbuffer > buff;
@@ -77,19 +78,21 @@ typedef struct {
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
 } task_type;
+*/
 
 class TaskSet{
 public:
-    vector< task_type > tasks;
-    // input_header * input;
-    std::unique_ptr< input_header > input;
+    //vector< task_type > tasks;
+    // input_type * input;
+    std::unique_ptr< input_type > input;
 
     TaskSet(){
-        unsigned i,c;
+        //unsigned i,c;
         pid_list = nullptr;
         //const char * in_name= "";
         //input = (std::unique_ptr< input_wrapper >) new input_header(in_name);
-        input = (std::unique_ptr< input_header >) new input_header("");
+        input = (std::unique_ptr< input_type >) new input_type("");
+        /*
         tasks.resize(N_TASKS);
         for(i=0;i<N_TASKS;++i){
             // tasks[i].name = tasks_name[i];
@@ -111,6 +114,7 @@ public:
                 }
             }
         }
+        */
     }
 
     // using shared_ptr ... no need to deallocated
@@ -121,12 +125,12 @@ public:
         for(i=0;i<N_TASKS;++i){
             cout << input->get_tasks_name(i) << ", " << input->get_tasks_wcet(i) << endl;
             cout << " ins: ";
-            for(c=0;c<tasks[i].in_buffers.size();++c)
-                cout << tasks[i].in_buffers[c]->name << "(" << tasks[i].in_buffers[c]->size << "), ";
+            for(c=0;c<input->tasks[i].in_buffers.size();++c)
+                cout << input->tasks[i].in_buffers[c]->name << "(" << input->tasks[i].in_buffers[c]->size << "), ";
             cout << endl;
             cout << " outs: ";
-            for(c=0;c<tasks[i].out_buffers.size();++c)
-                cout << tasks[i].out_buffers[c]->name << "(" << tasks[i].out_buffers[c]->size << "), ";
+            for(c=0;c<input->tasks[i].out_buffers.size();++c)
+                cout << input->tasks[i].out_buffers[c]->name << "(" << input->tasks[i].out_buffers[c]->size << "), ";
             cout << endl;
         }    
   }
@@ -154,7 +158,8 @@ private:
 //static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const unsigned long period_ns=0){
 // static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const unsigned long period_ns=0){
 // static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_wrapper& input, const unsigned long period_ns=0){
-static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_header& input, const unsigned long period_ns=0){
+// static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_type& input, const unsigned long period_ns=0){
+static void task_creator(unsigned seed, const unsigned task_id, const input_type& input, const unsigned long period_ns=0){
   unsigned iter=0;
   unsigned i;
   unsigned long execution_time;
@@ -215,7 +220,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
 
   // file to save the dag execution time, created only by the end task
   ofstream dag_exec_time_f;
-  if (task.out_buffers.size() == 0){
+  if (input.tasks[task_id].out_buffers.size() == 0){
     exec_time_fname = dagset_name;  
     exec_time_fname += "/";
     exec_time_fname += dagset_name;
@@ -237,7 +242,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
     // this variable is set by the starting task and read by the final task.
     // if this is the starting task, i.e. a task with no input queues, get the time the dag started.
-    if (task.in_buffers.size() == 0){
+    if (input.tasks[task_id].in_buffers.size() == 0){
       now_long = (unsigned long) micros(); 
       dag_start_time.push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
@@ -245,10 +250,10 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
 
     // wait all incomming messages
     LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
-    for(i=0;i<task.in_buffers.size();++i){
+    for(i=0;i<input.tasks[task_id].in_buffers.size();++i){
         LOG(INFO,"task %s (%u), waiting buffer %s(%d)\n", task_name, iter, task.in_buffers[i]->name, task.in_buffers[i]->size);
         // it blocks until the data is produced
-        task.in_buffers[i]->buff->pop(message);
+        input.tasks[task_id].in_buffers[i]->buff->pop(message);
         LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, message.size(), message.get());
     }
 
@@ -269,10 +274,10 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
 
     // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
     LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
-    for(i=0;i<task.out_buffers.size();++i){
-        message.set(task_name,iter,task.out_buffers[i]->size);
+    for(i=0;i<input.tasks[task_id].out_buffers.size();++i){
+        message.set(task_name,iter,input.tasks[task_id].out_buffers[i]->size);
         //assert(message.size() < task.out_buffers[i]->size);
-        task.out_buffers[i]->buff->push(message);
+        input.tasks[task_id].out_buffers[i]->buff->push(message);
         LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, message.size(), message.get());
     }
     LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
@@ -294,12 +299,12 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     }
 
     // only the start task waits for the period
-    if (task.in_buffers.size() == 0){
+    if (input.tasks[task_id].in_buffers.size() == 0){
         wait_rest_of_period(&pinfo);
     }
 
     // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
-    if (task.out_buffers.size() == 0){
+    if (input.tasks[task_id].out_buffers.size() == 0){
         unsigned long last_dag_start;
         dag_start_time.pop(last_dag_start);
         duration = now_long - last_dag_start;
@@ -316,7 +321,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
   if (input.get_tasks_rel_deadline(task_id) > 0){
     exec_time_f.close();
   }
-  if (task.out_buffers.size() == 0){
+  if (input.tasks[task_id].out_buffers.size() == 0){
     dag_exec_time_f.close();
   }
 }
@@ -324,7 +329,8 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;
         unsigned long thread_id;
-        threads.push_back(thread(task_creator,seed, tasks[0], 0, *input, input->get_period()));
+        threads.push_back(thread(task_creator,seed, 0, *input, input->get_period()));
+        //threads.push_back(thread(task_creator,seed, tasks[0], 0, *input, input->get_period()));
         //threads.push_back(thread(task_creator,seed, tasks[0], 0, input->get_period()));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
@@ -341,10 +347,10 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned ta
     }
 
     void process_launcher(unsigned seed){
-        this->spawn_proc(tasks[0],seed,DAG_PERIOD);
-        for(unsigned i=1;i<N_TASKS;++i){
-            this->spawn_proc(tasks[i],seed,0);
-        }
+        // TODO this->spawn_proc(tasks[0],seed,DAG_PERIOD);
+        // for(unsigned i=1;i<N_TASKS;++i){
+        //     this->spawn_proc(tasks[i],seed,0);
+        // }
         // join processes
 
         // a simpler way to wait the tasks ...
