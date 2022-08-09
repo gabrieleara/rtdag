@@ -90,15 +90,16 @@ int main() {
   unsigned seed = 123456;
   cout << "SEED: " << seed << endl;  
 
-  // create the directory where execution time are saved
-  struct stat st = {0};
-  if (stat(dagset_name, &st) == -1) {
-    mkdir(dagset_name, 0700);
-  }
-
   // build the TaskSet class of data from dag.h
   TaskSet task_set;
   task_set.print();
+
+  // create the directory where execution time are saved
+  struct stat st = {0};
+  if (stat(task_set.get_dagset_name(), &st) == -1) {
+    mkdir(task_set.get_dagset_name(), 0700);
+  }
+
   // pass pid_list such that tasks can be killed with CTRL+C
   task_set.launch_tasks(&pid_list,seed);
 

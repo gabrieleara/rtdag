@@ -25,6 +25,8 @@
 #include <linux/types.h>
 
 #include "dag.h"
+#include "input_wrapper.h"
+#include "input_header.h"
 #include "shared_mem_type.h"
 #include "circular_buffer.h"
 #include "circular_shm.h"
@@ -74,6 +76,8 @@ public:
     TaskSet(){
         unsigned i,c;
         pid_list = nullptr;
+        const char * in_name= "";
+        input = (std::unique_ptr< input_wrapper >) new input_header(in_name);
         tasks.resize(N_TASKS);
         for(i=0;i<N_TASKS;++i){
             tasks[i].name = tasks_name[i];
@@ -124,8 +128,10 @@ public:
     #endif
   }
 
+  const char *get_dagset_name() const {return input->get_dagset_name();}
 private:
     
+    std::unique_ptr< input_wrapper > input;
     // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
     vector<int> *pid_list;
 
