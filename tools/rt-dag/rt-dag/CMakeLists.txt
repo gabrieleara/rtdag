@@ -42,6 +42,23 @@ ENDIF()
 add_definitions(-DTASK_IMPL=${TASK_IMPL_INT})
 
 ##############
+# input implementation: C header or YAML input
+##############
+
+set(INPUT_TYPE "header" CACHE STRING
+  "DAG input method")
+set(InputImplValues "header;yaml" CACHE STRING
+  "C header input (default) or yaml-based input.")
+set_property(CACHE INPUT_TYPE PROPERTY STRINGS ${InputImplValues})
+message(STATUS "Input implementation: '${INPUT_TYPE}-based'")
+IF (${INPUT_TYPE} STREQUAL "header")
+  set(INPUT_TYPE_INT 0)
+ELSE()
+  set(INPUT_TYPE_INT 1)
+ENDIF()
+add_definitions(-DINPUT_TYPE=${INPUT_TYPE_INT})
+
+##############
 # Optional features
 ##############
 

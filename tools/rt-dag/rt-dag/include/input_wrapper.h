@@ -3,6 +3,7 @@
 
 /*
 This is a wrapper class to ease the integration of multiple input formats for rt-dag.
+TODO: currently not used due to failed attempt to use the base class.
 
 */
 

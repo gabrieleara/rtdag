@@ -13,14 +13,15 @@ this becomes cumbersome. It gets even more complex because it requires cross-com
 to build all the required scenarios
 */
 
-#include "input_wrapper.h"
+// TODO: implemente a proper base class 
+//#include "input_wrapper.h"
 #include "dag.h"
 
 // class input_header: public input_wrapper{
 class input_header{
 public:
 
-//input_header(const char* fname_): input_wrapper(fname_) {}
+// input_header(const char* fname_): input_wrapper(fname_) {}
 input_header(const char* fname_){}
 
 const char *    get_dagset_name() const { return dagset_name;}

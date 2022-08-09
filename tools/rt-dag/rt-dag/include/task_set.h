@@ -25,8 +25,9 @@
 #include <linux/types.h>
 
 #include "dag.h"
-#include "input_wrapper.h"
+// #include "input_wrapper.h"
 #include "input_header.h"
+#include "input_yaml.h"
 #include "shared_mem_type.h"
 #include "circular_buffer.h"
 #include "circular_shm.h"
@@ -35,6 +36,14 @@
 using namespace std;
 
 #define BUFFER_LINES 3
+
+// due to a failed attemp to build a proper base class, the solution if to do this 
+// hack to enable switching the input type
+#if INPUT_TYPE == 0 
+    using input_type = input_header;
+#else
+    using input_type = input_yaml;
+#endif
 
 // choose the appropriate communication method based on the task implementation
 #if TASK_IMPL == 0 
@@ -141,9 +150,10 @@ private:
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
 // static void task_creator(unsigned seed, const task_type& task, const unsidged task_id, const input_wrapper& input, const unsigned long period_ns=0){
-static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_header& input, const unsigned long period_ns=0){
 //static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const unsigned long period_ns=0){
 // static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const unsigned long period_ns=0){
+// static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_wrapper& input, const unsigned long period_ns=0){
+static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_header& input, const unsigned long period_ns=0){
   unsigned iter=0;
   unsigned i;
   unsigned long execution_time;
