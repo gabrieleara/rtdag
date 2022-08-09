@@ -16,25 +16,27 @@ to build all the required scenarios
 #include "input_wrapper.h"
 #include "dag.h"
 
-class input_header: public input_wrapper{
+// class input_header: public input_wrapper{
+class input_header{
 public:
 
-input_header(const char* fname_): input_wrapper(fname_) {}
+//input_header(const char* fname_): input_wrapper(fname_) {}
+input_header(const char* fname_){}
 
 const char *    get_dagset_name() const { return dagset_name;}
-const unsigned  get_n_tasks() const { return N_TASKS;}
-const unsigned  get_n_edges() const { return N_EDGES;}
-const unsigned  get_max_out_edges() const { return MAX_OUT_EDGES_PER_TASK;}
-const unsigned  get_max_in_edges() const { return MAX_IN_EDGES_PER_TASK;}
-const unsigned  get_msg_len() const { return MAX_MSG_LEN;}
-const unsigned  get_repetitions() const { return REPETITIONS;}
-const unsigned long get_period() const { return DAG_PERIOD;}
-const unsigned long get_deadline() const { return DAG_DEADLINE;}
+unsigned  get_n_tasks() const { return N_TASKS;}
+unsigned  get_n_edges() const { return N_EDGES;}
+unsigned  get_max_out_edges() const { return MAX_OUT_EDGES_PER_TASK;}
+unsigned  get_max_in_edges() const { return MAX_IN_EDGES_PER_TASK;}
+unsigned  get_msg_len() const { return MAX_MSG_LEN;}
+unsigned  get_repetitions() const { return REPETITIONS;}
+unsigned long get_period() const { return DAG_PERIOD;}
+unsigned long get_deadline() const { return DAG_DEADLINE;}
 const char *    get_tasks_name(unsigned t) const { return tasks_name[t];}
-const unsigned long  get_tasks_wcet(unsigned t) const { return tasks_wcet[t];}
-const unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
-const unsigned  get_tasks_affinity(unsigned t) const { return task_affinity[t];}
-const unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return adjacency_matrix[t1][t2];}
+unsigned long  get_tasks_wcet(unsigned t) const { return tasks_wcet[t];}
+unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
+unsigned  get_tasks_affinity(unsigned t) const { return task_affinity[t];}
+unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return adjacency_matrix[t1][t2];}
 
 };
 

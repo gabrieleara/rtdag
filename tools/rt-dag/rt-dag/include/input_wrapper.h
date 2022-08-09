@@ -62,19 +62,19 @@ public:
     }
 
     virtual const char *    get_dagset_name() const = 0;
-    virtual const unsigned  get_n_tasks() const = 0;
-    virtual const unsigned  get_n_edges() const  = 0;
-    virtual const unsigned  get_max_out_edges() const  = 0;
-    virtual const unsigned  get_max_in_edges() const  = 0;
-    virtual const unsigned  get_msg_len() const  = 0;
-    virtual const unsigned  get_repetitions() const  = 0;
-    virtual const unsigned long  get_period() const  = 0;
-    virtual const unsigned long  get_deadline() const  = 0;
+    virtual unsigned  get_n_tasks() const = 0;
+    virtual unsigned  get_n_edges() const  = 0;
+    virtual unsigned  get_max_out_edges() const  = 0;
+    virtual unsigned  get_max_in_edges() const  = 0;
+    virtual unsigned  get_msg_len() const  = 0;
+    virtual unsigned  get_repetitions() const  = 0;
+    virtual unsigned long  get_period() const  = 0;
+    virtual unsigned long  get_deadline() const  = 0;
     virtual const char *    get_tasks_name(unsigned t) const = 0;
-    virtual const unsigned long  get_tasks_wcet(unsigned t) const = 0;
-    virtual const unsigned long  get_tasks_rel_deadline(unsigned t) const = 0;
-    virtual const unsigned  get_tasks_affinity(unsigned t) const = 0;
-    virtual const unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const = 0;
+    virtual unsigned long  get_tasks_wcet(unsigned t) const = 0;
+    virtual unsigned long  get_tasks_rel_deadline(unsigned t) const = 0;
+    virtual unsigned  get_tasks_affinity(unsigned t) const = 0;
+    virtual unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const = 0;
 
 };
 

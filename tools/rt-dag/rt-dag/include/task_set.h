@@ -72,12 +72,14 @@ typedef struct {
 class TaskSet{
 public:
     vector< task_type > tasks;
+    input_header * input;
 
     TaskSet(){
         unsigned i,c;
         pid_list = nullptr;
-        const char * in_name= "";
-        input = (std::unique_ptr< input_wrapper >) new input_header(in_name);
+        //const char * in_name= "";
+        //input = (std::unique_ptr< input_wrapper >) new input_header(in_name);
+        input = new input_header("");
         tasks.resize(N_TASKS);
         for(i=0;i<N_TASKS;++i){
             tasks[i].name = tasks_name[i];
@@ -131,14 +133,17 @@ public:
   const char *get_dagset_name() const {return input->get_dagset_name();}
 private:
     
-    std::unique_ptr< input_wrapper > input;
+    
     // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
     vector<int> *pid_list;
 
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-static void task_creator(unsigned seed, const task_type& task, const unsigned long period_ns=0){
+// static void task_creator(unsigned seed, const task_type& task, const unsidged task_id, const input_wrapper& input, const unsigned long period_ns=0){
+static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const input_header& input, const unsigned long period_ns=0){
+//static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const unsigned long period_ns=0){
+// static void task_creator(unsigned seed, const task_type& task, const unsigned task_id, const unsigned long period_ns=0){
   unsigned iter=0;
   unsigned i;
   unsigned long execution_time;
@@ -308,12 +313,13 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;
         unsigned long thread_id;
-        threads.push_back(thread(task_creator,seed, tasks[0], DAG_PERIOD));
+        threads.push_back(thread(task_creator,seed, tasks[0], 0, *input, input->get_period()));
+        //threads.push_back(thread(task_creator,seed, tasks[0], 0, input->get_period()));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < N_TASKS; i++) {
-            threads.push_back(std::thread(task_creator, seed, tasks[i], 0));
+            // threads.push_back(std::thread(task_creator, seed, tasks[i], i, input, 0));
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
@@ -370,7 +376,7 @@ static void task_creator(unsigned seed, const task_type& task, const unsigned lo
         }
         if (pid == 0){
             printf("Task %s pid %d forked\n",task.name.c_str(),getpid());
-            task_creator(seed, task, period);
+            //task_creator(seed, task, period);
             exit(0);
         }else{
             pid_list->push_back(pid);
