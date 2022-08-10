@@ -14,12 +14,16 @@ to build all the required scenarios
 //#include "input_wrapper.h"
 // #include <memory>
 #include <iostream>
+#include <string>
 #include <yaml-cpp/yaml.h>
 
 using namespace std;
 
 // class input_yaml: public input_wrapper{
 class input_yaml{
+
+    string dag_name;
+    string tasks_name[32];
 
 public:
     YAML::Node inputs;
@@ -41,25 +45,45 @@ public:
             cerr << "ERROR: dag_name attribute is missing. Is this the correct rt-dag YAML file ?!?!\n\n";
             exit(EXIT_FAILURE);
         }
-        cout << "Reading name: " << inputs["dag_name"] << endl;
-        exit(EXIT_FAILURE);
+        //cout << "Reading name: " << inputs["dag_name"] << endl;
+        dag_name = inputs["dag_name"].as<string>();
+        const int ntasks = get_n_tasks();
+        for (int i=0;i<ntasks;i++){
+            tasks_name[i] = inputs["tasks_name"][i].as<string>();
+        }
+    }
+
+    void dump(){
+        cout << "dag_name: " << get_dagset_name() << endl;
+        cout << "n_tasks: " << get_n_tasks() << endl;
+        cout << "n_edges: " << get_n_edges() << endl;
+        cout << "max_out_edges: " << get_max_out_edges() << endl;
+        cout << "max_in_edges: " << get_max_in_edges() << endl;
+        cout << "repetitions: " << get_repetitions() << endl;
+        cout << "period: " << get_period() << endl;
+        cout << "deadline: " << get_deadline() << endl;
+        const int ntasks = get_n_tasks();
+        for (int i=0;i<ntasks;i++){
+            cout << " - " << get_tasks_name(i) << ", " << get_tasks_wcet(i) << ", " << get_tasks_rel_deadline(i) 
+                << ", " << get_tasks_affinity(i) << endl;
+        }
 
     }
 
-    const char *    get_dagset_name() const { return "";}
-    unsigned  get_n_tasks() const { return 0;}
-    unsigned  get_n_edges() const { return 0;}
-    unsigned  get_max_out_edges() const { return 0;}
-    unsigned  get_max_in_edges() const { return 0;}
-    unsigned  get_msg_len() const { return 0;}
-    unsigned  get_repetitions() const { return 0;}
-    unsigned long get_period() const { return 0;}
-    unsigned long get_deadline() const { return 0;}
-    const char *    get_tasks_name(unsigned t) const { return "";}
-    unsigned long  get_tasks_wcet(unsigned t) const { return 0;}
-    unsigned long  get_tasks_rel_deadline(unsigned t) const{ return 0;}
-    unsigned  get_tasks_affinity(unsigned t) const { return 0;}
-    unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return 0;}
+    const char *  get_dagset_name() const { return dag_name.c_str();}
+    unsigned  get_n_tasks() const { return inputs["n_tasks"].as<unsigned>();}
+    unsigned  get_n_edges() const { return inputs["n_edges"].as<unsigned>();}
+    unsigned  get_max_out_edges() const { return inputs["max_out_edges"].as<unsigned>();}
+    unsigned  get_max_in_edges() const { return inputs["max_in_edges"].as<unsigned>();}
+    unsigned  get_msg_len() const { return inputs["max_msg_len"].as<unsigned>();}
+    unsigned  get_repetitions() const { return inputs["repetitions"].as<unsigned>();}
+    unsigned long get_period() const { return inputs["dag_period"].as<unsigned long>();}
+    unsigned long get_deadline() const { return inputs["dag_deadline"].as<unsigned long>();}
+    const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}        
+    unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
+    unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
+    unsigned  get_tasks_affinity(unsigned t) const { return inputs["tasks_affinity"][t].as<unsigned>();}
+    unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
 
 };
 

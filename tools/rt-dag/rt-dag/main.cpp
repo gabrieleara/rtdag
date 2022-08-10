@@ -129,6 +129,7 @@ int main(int argc, char* argv[]) {
 #endif  
   // read the dag configuration from the selected type of input
   std::unique_ptr< input_type > inputs = (std::unique_ptr< input_type >) new input_type(in_fname.c_str());
+  inputs->dump();
   // build the TaskSet class of data from dag.h
   TaskSet task_set(inputs);
   task_set.print();

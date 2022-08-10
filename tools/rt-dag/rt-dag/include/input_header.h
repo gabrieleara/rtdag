@@ -31,6 +31,9 @@ public:
     // input_header(const char* fname_): input_wrapper(fname_) {}
     input_header(const char* fname_){ }
 
+    // TODO TBD
+    void dump(){ }
+
     const char *    get_dagset_name() const { return dagset_name;}
     unsigned  get_n_tasks() const { return N_TASKS;}
     unsigned  get_n_edges() const { return N_EDGES;}
