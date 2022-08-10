@@ -52,8 +52,10 @@
 // hack to enable switching the input type
 #if INPUT_TYPE == 0 
     using input_type = input_header;
+    #define INPUT_TYPE_NAME "header"
 #else
     using input_type = input_yaml;
+    #define INPUT_TYPE_NAME "yaml"
 #endif
 
 // this tells to use thread-safe circular buffer 
@@ -86,7 +88,19 @@ void exit_all(int sigid){
     exit(0);
 }
 
-int main() {
+void usage(){
+    cout << "./rt-dag, 2022, ReTiS Laboratory, Scuola Sant'Anna, Pisa, Italy\n";
+    cout << "Compilation mode: " << INPUT_TYPE_NAME << endl;
+#if INPUT_TYPE == 0 
+    cout << "Usage: ./rt-dag\n";
+#else
+    cout << "Usage: ./rt-dag <input YAML file>\n";
+//    cout << "  Options:\n";
+//    cout << "    -ip power ............... Specify the upper bound for power\n";
+#endif
+}
+
+int main(int argc, char* argv[]) {
 
   signal(SIGKILL,exit_all);
   signal(SIGSEGV,exit_all);
@@ -98,8 +112,23 @@ int main() {
   unsigned seed = 123456;
   cout << "SEED: " << seed << endl;  
 
+  // this input format does not have an input file format.
+  // INPUT_TYPE != 0  means this is not the input_header mode, which does not have input files
+  string in_fname="";
+#if INPUT_TYPE != 0 
+  if (argc != 2){
+      usage();
+      exit(EXIT_FAILURE);
+  }
+  in_fname = argv[1];
+#else
+  if (argc != 1){
+      usage();
+      exit(EXIT_FAILURE);
+  }
+#endif  
   // read the dag configuration from the selected type of input
-  std::unique_ptr< input_type > inputs = (std::unique_ptr< input_type >) new input_type("");
+  std::unique_ptr< input_type > inputs = (std::unique_ptr< input_type >) new input_type(in_fname.c_str());
   // build the TaskSet class of data from dag.h
   TaskSet task_set(inputs);
   task_set.print();

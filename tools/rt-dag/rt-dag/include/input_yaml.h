@@ -37,6 +37,13 @@ public:
             exit(EXIT_FAILURE);
         }
 
+        if (!inputs["dag_name"]){
+            cerr << "ERROR: dag_name attribute is missing. Is this the correct rt-dag YAML file ?!?!\n\n";
+            exit(EXIT_FAILURE);
+        }
+        cout << "Reading name: " << inputs["dag_name"] << endl;
+        exit(EXIT_FAILURE);
+
     }
 
     const char *    get_dagset_name() const { return "";}
