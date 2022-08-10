@@ -45,8 +45,16 @@
 #include <unistd.h> // getpid
 
 #include <log.h>
-#include <periodic_task.h>
-#include <time_aux.h>
+#include "input_header.h"
+#include "input_yaml.h"
+
+// due to a failed attemp to build a proper base class, the solution if to do this 
+// hack to enable switching the input type
+#if INPUT_TYPE == 0 
+    using input_type = input_header;
+#else
+    using input_type = input_yaml;
+#endif
 
 // this tells to use thread-safe circular buffer 
 // the dag definition is here
@@ -90,8 +98,10 @@ int main() {
   unsigned seed = 123456;
   cout << "SEED: " << seed << endl;  
 
+  // read the dag configuration from the selected type of input
+  std::unique_ptr< input_type > inputs = (std::unique_ptr< input_type >) new input_type("");
   // build the TaskSet class of data from dag.h
-  TaskSet task_set;
+  TaskSet task_set(inputs);
   task_set.print();
 
   // create the directory where execution time are saved

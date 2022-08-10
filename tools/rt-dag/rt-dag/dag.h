@@ -13,11 +13,11 @@ const char * dagset_name = "rnd00";
 #define DAG_PERIOD 1'000'000 // in us
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
 const char * tasks_name[N_TASKS] = {"input","n0","n1","n2","n3","output",};
-const unsigned tasks_wcet[N_TASKS] = {0,50'000,500'000,200'000,100'000,0}; // in us. 
+const unsigned tasks_wcet[N_TASKS] = {50'000,50'000,500'000,200'000,100'000,50'000}; // in us. 
 // The relative deadline of each task.
 // make sure that the sum of the longest path must be <= DAG_DEADLINE since
 // this consistency is not done here !!!
-const unsigned tasks_rel_deadline[N_TASKS] = {0,100'000,800'000,800'000,100'000,0}; // in us
+const unsigned tasks_rel_deadline[N_TASKS] = {100'000,100'000,800'000,800'000,100'000,100'000}; // in us
 // pin threads/processes onto the specified cores
 const unsigned task_affinity[N_TASKS] = {0,1,2,3,1,0};
 // values != 0 means there is a link from task l (line) to task c(column)
