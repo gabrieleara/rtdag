@@ -59,6 +59,14 @@ ENDIF()
 add_definitions(-DINPUT_TYPE=${INPUT_TYPE_INT})
 
 ##############
+# check dependencies
+##############
+
+# YAML parser dependency
+find_package(YAML-CPP REQUIRED
+    HINTS /usr/local/share/cmake)
+
+##############
 # Optional features
 ##############
 
@@ -105,4 +113,4 @@ set_source_files_properties(${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c P
 ##############
 
 add_executable( ${CMAKE_PROJECT_NAME} main.cpp )
-target_link_libraries( ${CMAKE_PROJECT_NAME} YourLib m rt pthread)
+target_link_libraries( ${CMAKE_PROJECT_NAME} YourLib m rt pthread yaml-cpp)

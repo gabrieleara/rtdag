@@ -9,7 +9,7 @@ const char * dagset_name = "rnd00";
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK  2
 #define MAX_MSG_LEN 53
-#define REPETITIONS 5 // the number of iterations of the complete DAG
+#define REPETITIONS 50 // the number of iterations of the complete DAG
 #define DAG_PERIOD 1'000'000 // in us
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
 const char * tasks_name[N_TASKS] = {"input","n0","n1","n2","n3","output",};
