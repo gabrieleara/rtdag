@@ -2,8 +2,7 @@
 #define INPUT_HEADER_H_
 
 /*
-This is a wrapper classe that reads from dag.h. This is made like this to 
-ease the integration of multiple input formats for rt-dag.
+This is a implementation of the input_wrapper class that reads from dag.h. 
 
 This was the 1st data input format developed for rt-dag. It has some advantages
 like the possibility to optimize code due to use of consts and defines.
@@ -13,26 +12,15 @@ this becomes cumbersome. It gets even more complex because it requires cross-com
 to build all the required scenarios
 */
 
-// TODO: implemente a proper base class 
-//#include "input_wrapper.h"
-#include <memory>
-#include <vector>
+#include "input_wrapper.h"
 #include "dag.h"
 
 using namespace std;
 
-// class input_header: public input_wrapper{
-class input_header{
+class input_header: public input_wrapper{
 
 public:
-    // task connectivity info
-    //vector< task_type > tasks;
-
-    // input_header(const char* fname_): input_wrapper(fname_) {}
-    input_header(const char* fname_){ }
-
-    // TODO TBD
-    void dump(){ }
+    input_header(const char* fname_): input_wrapper(fname_) {}
 
     const char *    get_dagset_name() const { return dagset_name;}
     unsigned  get_n_tasks() const { return N_TASKS;}
@@ -48,7 +36,6 @@ public:
     unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
     unsigned  get_tasks_affinity(unsigned t) const { return task_affinity[t];}
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return adjacency_matrix[t1][t2];}
-
 };
 
 #endif // INPUT_HEADER_H_

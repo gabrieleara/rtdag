@@ -1,7 +1,6 @@
 /**
  * @author Alexandre Amory, ReTiS Lab, Scuola Sant'Anna, Pisa, Italy.
- * @brief It transfers data from dag.h into a more managable data structure.
- * It also hides resources managment details, like mem alloc, etc. Like in RAII style.
+ * @brief It also hides resources managment details, like mem alloc, etc. required to create trheads/process. Like in RAII style.
  * @version 0.1
  * @date 2022-07-06
  * 
@@ -32,6 +31,8 @@
 #include "circular_shm.h"
 #include "sched_defs.h"
 
+#include "input_wrapper.h"
+
 using namespace std;
 
 #define BUFFER_LINES 1
@@ -53,7 +54,6 @@ using dag_deadline_type = circular_shm <unsigned long,1>;
 
 
 typedef struct {
-    // the only reason this is pointer is that, when using circular_shm, it requries to pass the shared mem name
     std::unique_ptr< cbuffer > buff;
     unsigned size; // in bytes
     char name[32];
@@ -74,27 +74,27 @@ typedef struct {
 class TaskSet{
 public:
     vector< task_type > tasks;
-    std::unique_ptr< input_type > input;
+    std::unique_ptr< input_wrapper > input;
 
-    TaskSet(std::unique_ptr< input_type > &in_data): input(move(in_data)){
+    TaskSet(std::unique_ptr< input_wrapper > &in_data): input(move(in_data)){
         unsigned i,c;
         pid_list = nullptr;
-        tasks.resize(N_TASKS);
-        for(i=0;i<N_TASKS;++i){
-            tasks[i].name = tasks_name[i];
-            tasks[i].wcet = tasks_wcet[i];
-            tasks[i].deadline = tasks_rel_deadline[i];
-            tasks[i].affinity = task_affinity[i];
+        tasks.resize(input->get_n_tasks());
+        for(i=0;i<input->get_n_tasks();++i){
+            tasks[i].name = input->get_tasks_name(i);
+            tasks[i].wcet = input->get_tasks_wcet(i);
+            tasks[i].deadline = input->get_tasks_rel_deadline(i);
+            tasks[i].affinity = input->get_tasks_affinity(i);
             // create the edges/queues w unique names
-            for(c=0;c<N_TASKS;++c){
-                if (adjacency_matrix[i][c]!=0){
+            for(c=0;c<input->get_n_tasks();++c){
+                if (input->get_adjacency_matrix(i,c)!=0){
                     // TODO: the edges are now implementing 1:1 communication, 
                     // but it would be possible to have multiple readers
                     ptr_edge new_edge(new edge_type);
                     snprintf(new_edge->name, 32, "n%u_n%u", i,c);
                     new_edge->buff = (std::unique_ptr< cbuffer >) new cbuffer(new_edge->name);
                     // this message size includes the string terminator, thus, threre is no +1 here
-                    new_edge->size = adjacency_matrix[i][c];
+                    new_edge->size = input->get_adjacency_matrix(i,c);
                     tasks[i].out_buffers.push_back(new_edge);
                     tasks[c].in_buffers.push_back(new_edge);
                 }
@@ -107,7 +107,7 @@ public:
 
     void print() const{
         unsigned i,c;
-        for(i=0;i<N_TASKS;++i){
+        for(i=0;i<input->get_n_tasks();++i){
             cout << tasks[i].name << ", wcet: " << tasks[i].wcet  << ", deadline: " << tasks[i].deadline << ", affinity: " << tasks[i].affinity << endl;
             cout << " ins: ";
             for(c=0;c<tasks[i].in_buffers.size();++c)
@@ -139,7 +139,7 @@ private:
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned long period_ns=0){
+static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline, const unsigned long period_ns=0){
   unsigned iter=0;
   unsigned i;
   unsigned long execution_time;
@@ -147,15 +147,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   char task_name[32];
   strcpy(task_name, task.name.c_str());
   assert((period_ns != 0 && period_ns>task.wcet) || period_ns == 0);
-
-  // randomize the start time of each task
-//   std::mt19937_64 eng{std::random_device{}()};  // or seed however you want
-//   std::uniform_int_distribution<> dist{10, 100};
-//   std::this_thread::sleep_for(std::chrono::milliseconds{dist(eng)});
-    
-//   std::hash<std::thread::id> myHashObject{};
-//   uint32_t threadID   __attribute__((unused)) = myHashObject(std::this_thread::get_id());
-//   LOG(INFO,"task %s created: pid = %u, ppid = %d\n", task_name, threadID, getppid());
 
   // set task affinity
   pin_to_core(task.affinity);
@@ -211,13 +202,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         exit(1);
     }
     // the 1st line is the task relative deadline. all the following lines are actual execution times
-    dag_exec_time_f << DAG_DEADLINE << endl;
+    dag_exec_time_f << dag_deadline << endl;
   }
 
   // local copy of the incomming data. this copy is not required since it is shared var,
   // but it is enforced to comply with Amalthea model 
   shared_mem_type message;
-  while(iter < REPETITIONS){
+  while(iter < repetitions){
     // check the end-to-end DAG deadline.
     // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
     // this variable is set by the starting task and read by the final task.
@@ -291,9 +282,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         LOG(INFO,"task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
         printf("task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
         dag_exec_time_f << duration << endl;
-        if (duration > DAG_DEADLINE){
+        if (duration > dag_deadline){
             printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
-            assert(duration <= DAG_DEADLINE);
+            assert(duration <= dag_deadline);
         }
     }
     ++iter;
@@ -309,12 +300,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;
         unsigned long thread_id;
-        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], input->get_period()));
+        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], input->get_repetitions(), input->get_deadline(), input->get_period()));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
-        for (unsigned i = 1; i < N_TASKS; i++) {
-            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], 0));
+        for (unsigned i = 1; i < input->get_n_tasks(); i++) {
+            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], input->get_repetitions(), input->get_deadline(), 0));
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
@@ -325,8 +316,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     }
 
     void process_launcher(unsigned seed){
-        this->spawn_proc(tasks[0],seed,DAG_PERIOD);
-        for(unsigned i=1;i<N_TASKS;++i){
+        this->spawn_proc(tasks[0],seed,input->get_period());
+        for(unsigned i=1;i<input->get_n_tasks();++i){
             this->spawn_proc(tasks[i],seed,0);
         }
         // join processes
@@ -335,7 +326,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // while ((wpid = wait(&status)) > 0); // this way, the father waits for all the child processes 
         // a beter way to make sure all the tasks were closed
         // https://stackoverflow.com/questions/8679226/does-a-kill-signal-exit-a-process-immediately
-        assert(pid_list->size()==N_TASKS);
+        assert(pid_list->size()==input->get_n_tasks());
         // this one is deleted 
         vector<int> local_task_id(*pid_list);
         while( local_task_id.size() != 0 ){
@@ -371,7 +362,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
         if (pid == 0){
             printf("Task %s pid %d forked\n",task.name.c_str(),getpid());
-            task_creator(seed, input->get_dagset_name(), task, period);
+            task_creator(seed, input->get_dagset_name(), task, input->get_repetitions(), input->get_deadline(), period);
             exit(0);
         }else{
             pid_list->push_back(pid);
@@ -393,6 +384,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         if (sched_setattr( 0, &sa, 0) < 0)
         {
             cerr << "Error sched_setattr()" << endl;
+            exit(1);
         }
     }
 

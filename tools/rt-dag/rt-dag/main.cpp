@@ -13,7 +13,7 @@
  * 
  *
  * Assumptions:
- *  - Each task is implemented w a thread;
+ *  - Each task is implemented w a thread or process. Check TASK_IMPL define;
  *  - Each edge is implemented with a thread-safe queue w size limite and blocking push. Syncronous blocking communication mode.
  *  - The DAG period is lower than the DAG WCET. This way, each shared variable it's garanteed that the next element will be received only after the current one is consumed
  *  - The 'task duration' accounts for the task execution plus msgs sent. It does not account waiting time for incomming data
@@ -28,8 +28,8 @@
  *  $> ./dag-launcher-thread
  */
 
-#include <iostream>           // std::cout
-#include <thread>             // std::thread
+#include <iostream>
+#include <thread>
 #include <vector>
 #include <random>
 #include <string>
@@ -45,20 +45,19 @@
 #include <unistd.h> // getpid
 
 #include <log.h>
-#include "input_header.h"
-#include "input_yaml.h"
+#include "input_wrapper.h"
 
-// due to a failed attemp to build a proper base class, the solution if to do this 
-// hack to enable switching the input type
+// select the input type
 #if INPUT_TYPE == 0 
+    #include "input_header.h"
     using input_type = input_header;
     #define INPUT_TYPE_NAME "header"
 #else
+    #include "input_yaml.h"
     using input_type = input_yaml;
     #define INPUT_TYPE_NAME "yaml"
 #endif
 
-// this tells to use thread-safe circular buffer 
 // the dag definition is here
 #include "task_set.h"
 
@@ -128,7 +127,7 @@ int main(int argc, char* argv[]) {
   }
 #endif  
   // read the dag configuration from the selected type of input
-  std::unique_ptr< input_type > inputs = (std::unique_ptr< input_type >) new input_type(in_fname.c_str());
+  std::unique_ptr< input_wrapper > inputs = (std::unique_ptr< input_wrapper >) new input_type(in_fname.c_str());
   inputs->dump();
   // build the TaskSet class of data from dag.h
   TaskSet task_set(inputs);
