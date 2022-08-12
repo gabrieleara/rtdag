@@ -16,7 +16,7 @@ This application can be used together with a *random graph generator* or *traces
 
 # How does it work ?
 
-The user describes a certain real-time DAG (see [dag.h](./dag.h) for an example) which represents a parallel workload and this application launches this DAG app, mimicking its actual computation and communication requirements of each task.
+The user describes a certain real-time DAG (see [dag.h](./dag.h) or [minimal.yaml](./minimal.yaml) for an example) which represents a parallel workload and this application launches this DAG app, mimicking its actual computation and communication requirements of each task.
 
 The *main* function works as a task launcher that creates **threads(or processes)** to run the tasks and creates the **thread-safe queues (or POSIX named shared memory)** to represent the edges of the DAG. This queue is created for every edge.  Each edge has one sender/receiver pair; the source task is the only one that writes in the queue, while the target task is the only one that reads from the queue. A multicast-like communication has to be broken down into multiple queues. A queue is named by combining the names of the source and target tasks. For instance, an mq named *n0_n1* connects the tasks *n0* and *n1*. 
 
@@ -24,7 +24,9 @@ The *main* function works as a task launcher that creates **threads(or processes
 
 This app currently supports end-to-end DAG deadline checking. This is implemented with POSIX shared memory (shmget and shmat) among the start and the final tasks. Basically, every time the start task starts a new DAG iteration, it saves its start time with *clock_gettime CLOCK_MONOTONIC_RAW* in the shared memory address. The final task computes its current time and subtracts from the time in the shared variable. Since DAG_DEADLINE is lower or equal to the DAG_DEADLINE, there is no risk of synchronization issues among the start and final tasks. This approach has limitations mentioned in the TODO list. 
 
-## Usage example
+## DAG description
+
+*rt-dag* supports two input formats: dag.h or yaml.
 
 For example, a DAG like this one:
 ```
@@ -35,28 +37,30 @@ For example, a DAG like this one:
       n2 
 ```
 
-is described as:
+can be described as C header file:
 
 ```C++
 #ifndef DAG_H_
 #define DAG_H_
 
 // global defs
+const char * dagset_name = "minimal_header";
 #define N_TASKS 4
 #define N_EDGES 4
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
-#define MAX_MSG_LEN 256
+#define MAX_MSG_LEN 64
 #define REPETITIONS 50 // the number of iterations of the complete DAG
-#define DAG_PERIOD 10'000 // in us 
+#define DAG_PERIOD 300'000 // in us 
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
+const char * tasks_name[N_TASKS] = {"n0","n1","n2","n3"};
 // The actual task computation workload in 'ticks'. a tick is equivalent to a simple logic operation.
 // Note that tick is not time ! it's a kind of workload unit
-const unsigned tasks_wcet[N_TASKS] = {50'000,500'000,200'000,50'000}; // in ticks. 
+const unsigned tasks_wcet[N_TASKS] = {50'000,50'000,50'000,50'000}; // in ticks. 
 // The relative deadline of each task.
 // make sure that the sum of the longest path must be <= DAG_DEADLINE since
 // this consistency is not done here !!!
-const unsigned tasks_rel_deadline[N_TASKS] = {1'000,8'000,8'000,1'000}; // in us
+const unsigned tasks_rel_deadline[N_TASKS] = {100'000,100'000,100'000,100'000}; // in us
 // pin threads/processes onto the specified cores
 // the values are the cpu ids. mask is currently not supported
 const unsigned task_affinity[N_TASKS] = {1,2,3,1};
@@ -71,7 +75,41 @@ const unsigned adjacency_matrix[N_TASKS][N_TASKS] = {
 #endif // DAG_H_
 ```
 
-This example, when running on a ODROID-XU4 board gives the following results when the little island set to 500MHz:
+or as YAML format:
+
+```yaml
+dag_name: "minimal_yaml"
+n_tasks: 4
+n_edges: 4
+max_out_edges: 2
+max_in_edges:  2
+max_msg_len: 1
+repetitions: 50 # the number of iterations of the complete DAG
+dag_period: 300000 # in us
+dag_deadline: 300000 # in us
+tasks_name: ["n000","n001","n002","n003"]
+# The actual task computation time is decided randomly in runtime
+tasks_wcet: [50000,50000,50000,50000] # in us. 
+# The relative deadline of each task.
+# make sure that the sum of the longest path must be <= DAG_DEADLINE since
+# this consistency is not done here !!!
+tasks_rel_deadline: [100000,100000,100000,100000] # in us. 
+# pin threads/processes onto the specified cores
+tasks_affinity: [1,2,2,4]
+# values != 0 means there is a link from task l (line) to task c(column)
+# amount of bytes sent by each edge
+adjacency_matrix: [
+                     [0,30,50, 0],
+                     [0, 0, 0,32],
+                     [0, 0, 0,32],
+                     [0, 0, 0, 0],
+                  ]
+```
+
+## Usage example
+
+
+This example above, when running on a ODROID-XU4 board, gives the following results when the little island set to 500MHz:
 
 ```
 ...
@@ -135,8 +173,9 @@ $> make -j 6
 
 One can change the compilation parameters with *ccmake*:
 
-  - The parameter **LOG_LEVEL** can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
   - The parameter **TASK_IMPL** indicates whether the DAG is implemented with threads or processes. The default value is threads;
+  - The parameter **INPUT_TYPE** selects input format: C header file or yaml;
+  - The parameter **LOG_LEVEL** can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
   - The parameter **BUFFER_LINES** indicated the buffer depth os each DAG edge. It represents how many messages can be stores before the *push* method is blocked.
 
 # How to run
@@ -199,6 +238,11 @@ Task n0 pid 30999 killed
 
 The number in parenthesis represents the iteration. Note that, since the tasks are parallel processes, the iteration order when logging can be a bit mixed up. Note also that the 1st task is the only periodic task in the DAG, following the DAG_PERIOD attribute. The execution time of all tasks starts as soon as they receive all required inputs and ends once they have sent all messages. In other words, the *task duration* accounts for the task computation plus its messages sent. It does not account for the waiting time for incoming messages since they are suspended. The *dag duration* represents the sum of execution times of the DAG critical path.
 
+In YAML mode, it needs to YAML input file as argument
+```
+$> ./rt_dag <yaml_file>
+```
+
 # Main features
 
 ## DAG deadline checking
@@ -217,6 +261,10 @@ $> watch -tdn0.5 ps -mo pid,tid,%cpu,psr -p \`pgrep rt_dag\`
 Generating an output similar to this one:
 
 ![CPU affinity](./doc/cpu_affinity.png "CPU affinity example")
+
+## SCHED_DEADLINE
+
+It uses the task definitions found in the input file to set SCHED_DEADLINE parameters.
 
 # Design decisions
 
@@ -296,6 +344,7 @@ load the perf.dat file into hotspot.
  - [x] Implement thread-level task modeling;
  - [x] Implement shared-memory IPC strategy;
  - [X] Implement end-to-end deadline checking;
+ - [X] Set SCHED_DEADLINE;
  - [X] Extend the data structure to pin down a task to a core;
     - [X] Pin down a task to a core is not working in process mode;
     - [ ] Support affinity masks in the task_affinity vector

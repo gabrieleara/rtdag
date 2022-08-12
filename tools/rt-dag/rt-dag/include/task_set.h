@@ -149,10 +149,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   assert((period_ns != 0 && period_ns>task.wcet) || period_ns == 0);
 
   // set task affinity
+  LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
   pin_to_core(task.affinity);
 
   // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
-  set_sched_deadline(task.wcet, task.deadline, task.deadline);
+  LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
+  //set_sched_deadline(task.wcet, task.deadline, task.deadline);
 
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");

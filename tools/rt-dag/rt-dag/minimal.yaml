@@ -1,0 +1,26 @@
+dag_name: "minimal_yaml"
+n_tasks: 4
+n_edges: 4
+max_out_edges: 2
+max_in_edges:  2
+max_msg_len: 64
+repetitions: 50 # the number of iterations of the complete DAG
+dag_period: 300000 # in us
+dag_deadline: 300000 # in us
+tasks_name: ["n000","n001","n002","n003"]
+# The actual task computation time is decided randomly in runtime
+tasks_wcet: [50000,50000,50000,50000] # in us. 
+# The relative deadline of each task.
+# make sure that the sum of the longest path must be <= DAG_DEADLINE since
+# this consistency is not done here !!!
+tasks_rel_deadline: [100000,100000,100000,100000] # in us. 
+# pin threads/processes onto the specified cores
+tasks_affinity: [1,2,2,4]
+# values != 0 means there is a link from task l (line) to task c(column)
+# amount of bytes sent by each edge
+adjacency_matrix: [
+                     [0,30,50, 0],
+                     [0, 0, 0,32],
+                     [0, 0, 0,32],
+                     [0, 0, 0, 0],
+                  ]
