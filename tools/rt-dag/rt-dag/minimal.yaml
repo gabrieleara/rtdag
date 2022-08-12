@@ -1,6 +1,7 @@
 dag_name: "minimal_yaml"
 n_tasks: 4
 n_edges: 4
+n_cpus: 8
 max_out_edges: 2
 max_in_edges:  2
 max_msg_len: 64
@@ -16,6 +17,8 @@ tasks_wcet: [50000,50000,50000,50000] # in us.
 tasks_rel_deadline: [100000,100000,100000,100000] # in us. 
 # pin threads/processes onto the specified cores
 tasks_affinity: [1,2,2,4]
+# set the frequency of each core, in MHz
+cpus_freq: [1000,1000,1000,1000,200,200,200,200]
 # values != 0 means there is a link from task l (line) to task c(column)
 # amount of bytes sent by each edge
 adjacency_matrix: [

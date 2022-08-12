@@ -59,6 +59,15 @@ ENDIF()
 add_definitions(-DINPUT_TYPE=${INPUT_TYPE_INT})
 
 ##############
+# control cpu freq
+##############
+option(SET_FREQ "Set the CPU frequencies" OFF)
+if(SET_FREQ)
+    add_definitions(-DSET_FREQ)
+endif(SET_FREQ)
+
+
+##############
 # check dependencies
 ##############
 

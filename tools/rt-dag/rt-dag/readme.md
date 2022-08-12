@@ -47,6 +47,7 @@ can be described as C header file:
 const char * dagset_name = "minimal_header";
 #define N_TASKS 4
 #define N_EDGES 4
+#define N_CPUS 8
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
 #define MAX_MSG_LEN 64
@@ -64,6 +65,8 @@ const unsigned tasks_rel_deadline[N_TASKS] = {100'000,100'000,100'000,100'000}; 
 // pin threads/processes onto the specified cores
 // the values are the cpu ids. mask is currently not supported
 const unsigned task_affinity[N_TASKS] = {1,2,3,1};
+// set the frequency of each core, in MHz
+const unsigned cpus_freq[N_CPUS] = {1000,1000,1000,1000,200,200,200,200};
 // values != 0 means there is a link from task l (line) to task c(column)
 // amount of bytes sent byeach edge
 const unsigned adjacency_matrix[N_TASKS][N_TASKS] = {
@@ -81,6 +84,7 @@ or as YAML format:
 dag_name: "minimal_yaml"
 n_tasks: 4
 n_edges: 4
+n_cpus: 8
 max_out_edges: 2
 max_in_edges:  2
 max_msg_len: 1
@@ -96,6 +100,8 @@ tasks_wcet: [50000,50000,50000,50000] # in us.
 tasks_rel_deadline: [100000,100000,100000,100000] # in us. 
 # pin threads/processes onto the specified cores
 tasks_affinity: [1,2,2,4]
+# set the frequency of each core, in MHz
+cpus_freq: [1000,1000,1000,1000,200,200,200,200]
 # values != 0 means there is a link from task l (line) to task c(column)
 # amount of bytes sent by each edge
 adjacency_matrix: [
@@ -162,6 +168,13 @@ When running at 500Mhz, there was no relative or end-to-end deadline violation.
 However, when running at 200Mhz, tasks n0 and n1 missed their relative deadlines. n3 almost missed its relative deadline. The application aborted because the end-to-end deadline was also missed. It took 15600 us but the deadline is 10000 us.
 
 # How to compile
+
+## Requirements
+
+ - sudo apt install cpufrequtils
+ - sudo apt install libyaml-cpp-dev; only required when using the YAML mode.
+
+## Compiling
 
 ```
 $> mkdir build; cd build

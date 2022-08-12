@@ -25,6 +25,7 @@ public:
     const char *    get_dagset_name() const { return dagset_name;}
     unsigned  get_n_tasks() const { return N_TASKS;}
     unsigned  get_n_edges() const { return N_EDGES;}
+    unsigned  get_n_cpus() const  { return N_CPUS;}
     unsigned  get_max_out_edges() const { return MAX_OUT_EDGES_PER_TASK;}
     unsigned  get_max_in_edges() const { return MAX_IN_EDGES_PER_TASK;}
     unsigned  get_msg_len() const { return MAX_MSG_LEN;}
@@ -35,6 +36,7 @@ public:
     unsigned long  get_tasks_wcet(unsigned t) const { return tasks_wcet[t];}
     unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
     unsigned  get_tasks_affinity(unsigned t) const { return task_affinity[t];}
+    unsigned  get_cpus_freq(unsigned cpu) const { return cpus_freq[cpu];}
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return adjacency_matrix[t1][t2];}
 };
 

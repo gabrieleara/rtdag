@@ -49,6 +49,7 @@ public:
     const char *  get_dagset_name() const { return dag_name.c_str();}
     unsigned  get_n_tasks() const { return inputs["n_tasks"].as<unsigned>();}
     unsigned  get_n_edges() const { return inputs["n_edges"].as<unsigned>();}
+    unsigned  get_n_cpus() const { return inputs["n_cpus"].as<unsigned>();}
     unsigned  get_max_out_edges() const { return inputs["max_out_edges"].as<unsigned>();}
     unsigned  get_max_in_edges() const { return inputs["max_in_edges"].as<unsigned>();}
     unsigned  get_msg_len() const { return inputs["max_msg_len"].as<unsigned>();}
@@ -59,6 +60,7 @@ public:
     unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
     unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
     unsigned  get_tasks_affinity(unsigned t) const { return inputs["tasks_affinity"][t].as<unsigned>();}
+    unsigned  get_cpus_freq(unsigned cpu) const { return inputs["cpus_freq"][cpu].as<unsigned>();};
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
 };
 

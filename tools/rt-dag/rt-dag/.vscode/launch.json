@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/rt_dag",
-            "args": ["./Tau_1-rt-dag.yaml"],
+            "args": ["./minimal.yaml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/",
             "environment": [],

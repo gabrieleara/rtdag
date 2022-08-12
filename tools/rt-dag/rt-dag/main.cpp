@@ -71,7 +71,15 @@ using namespace std;
 // unsigned long dag_start_time; 
 vector<int> pid_list;
 
+// TODO: restore the previously saved freq setup before starting rt-dag
+void restore_cpu_freq(){}
+
+// TODO: save the previous freq setup to be restored after the rt-dag is executed
+void save_cpu_freq(){}
+
+
 void exit_all(int sigid){
+    restore_cpu_freq();
 #if TASK_IMPL == 0 
     printf("Killing all threads\n");
     // TODO: how to kill the threads without access to the thread list ?
@@ -98,6 +106,38 @@ void usage(){
 //    cout << "    -ip power ............... Specify the upper bound for power\n";
 #endif
 }
+
+void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
+    //  TODO: use 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq' for debug
+    const unsigned ncpus = in_data->get_n_cpus();
+    unsigned freq=0;
+    char cmd[64];
+    // save the current cpu freq setup to be restored after the rt-dag execution
+    save_cpu_freq();
+
+    // TODO: read the available governor to check whether 'userspace' is listed
+
+    // set the governor
+    // OBS: if your kernel is not configured with 'userspace' governor, you can still
+    // set the freq you want by using the 'performance' governor and setting the 
+    // frequency in 'scaling_max_freq'
+    int rv = system("sudo cpufreq-set -g userspace");
+    if (rv != 0) {
+        fprintf(stderr, "Error: %s\n", strerror(errno));
+        exit(1);
+    }    
+    for (unsigned i=0; i< ncpus; i++){
+        freq = in_data->get_cpus_freq(i);
+        rv = snprintf(cmd, sizeof(cmd), "sudo cpufreq-set -f %dMhz",freq);
+        assert((unsigned)rv < sizeof(cmd));
+        system(cmd);
+        if (rv != 0) {
+            fprintf(stderr, "Error: %s\n", strerror(errno));
+            exit(1);
+        }
+    }
+}
+
 
 int main(int argc, char* argv[]) {
 
@@ -129,6 +169,10 @@ int main(int argc, char* argv[]) {
   // read the dag configuration from the selected type of input
   std::unique_ptr< input_wrapper > inputs = (std::unique_ptr< input_wrapper >) new input_type(in_fname.c_str());
   inputs->dump();
+  // set the CPU frequencies
+#ifdef SET_FREQ    
+  set_cpu_freq(inputs);
+#endif
   // build the TaskSet class of data from dag.h
   TaskSet task_set(inputs);
   task_set.print();
@@ -143,6 +187,8 @@ int main(int argc, char* argv[]) {
   task_set.launch_tasks(&pid_list,seed);
 
   LOG(INFO,"[main] all tasks were finished ...\n");
+  // restored to the previous CPU frequenies
+  restore_cpu_freq();
 
   return 0;
 }

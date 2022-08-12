@@ -5,6 +5,7 @@
 const char * dagset_name = "minimal_header";
 #define N_TASKS 4
 #define N_EDGES 4
+#define N_CPUS 8
 #define MAX_OUT_EDGES_PER_TASK 2
 #define MAX_IN_EDGES_PER_TASK 2
 #define MAX_MSG_LEN 64
@@ -22,6 +23,8 @@ const unsigned tasks_rel_deadline[N_TASKS] = {100'000,100'000,100'000,100'000}; 
 // pin threads/processes onto the specified cores
 // the values are the cpu ids. mask is currently not supported
 const unsigned task_affinity[N_TASKS] = {1,2,2,4};
+// set the frequency of each core, in MHz
+const unsigned cpus_freq[N_CPUS] = {1000,1000,1000,1000,200,200,200,200};
 // values != 0 means there is a link from task l (line) to task c(column)
 // amount of bytes sent byeach edge
 const unsigned adjacency_matrix[N_TASKS][N_TASKS] = {
