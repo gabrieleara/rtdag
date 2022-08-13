@@ -97,7 +97,7 @@ void exit_all(int sigid){
 
 void usage(){
     cout << "./rt-dag, 2022, ReTiS Laboratory, Scuola Sant'Anna, Pisa, Italy\n";
-    cout << "Compilation mode: " << INPUT_TYPE_NAME << endl;
+    cout << "Input mode: " << INPUT_TYPE_NAME << endl;
 #if INPUT_TYPE == 0 
     cout << "Usage: ./rt-dag\n";
 #else
@@ -145,12 +145,6 @@ int main(int argc, char* argv[]) {
   signal(SIGSEGV,exit_all);
   signal(SIGINT,exit_all); 
 
-  // uncomment this to get a randon seed
-  //unsigned seed = time(0);
-  // or set manually a constant seed to repeat the same sequence
-  unsigned seed = 123456;
-  cout << "SEED: " << seed << endl;  
-
   // this input format does not have an input file format.
   // INPUT_TYPE != 0  means this is not the input_header mode, which does not have input files
   string in_fname="";
@@ -166,6 +160,13 @@ int main(int argc, char* argv[]) {
       exit(EXIT_FAILURE);
   }
 #endif  
+
+  // uncomment this to get a randon seed
+  //unsigned seed = time(0);
+  // or set manually a constant seed to repeat the same sequence
+  unsigned seed = 123456;
+  cout << "SEED: " << seed << endl;  
+
   // read the dag configuration from the selected type of input
   std::unique_ptr< input_wrapper > inputs = (std::unique_ptr< input_wrapper >) new input_type(in_fname.c_str());
   inputs->dump();
