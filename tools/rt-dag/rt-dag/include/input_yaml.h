@@ -41,6 +41,10 @@ public:
         //cout << "Reading name: " << inputs["dag_name"] << endl;
         dag_name = inputs["dag_name"].as<string>();
         const int ntasks = get_n_tasks();
+        if (ntasks >= sizeof(tasks_name)/sizeof(tasks_name[0])) {
+            cerr << "Max # of tasks exceeded in input YAML" << endl;
+            exit(EXIT_FAILURE);
+        }
         for (int i=0;i<ntasks;i++){
             tasks_name[i] = inputs["tasks_name"][i].as<string>();
         }
