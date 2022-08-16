@@ -139,14 +139,14 @@ private:
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline, const unsigned long period_ns=0){
+static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   unsigned iter=0;
   unsigned i;
   unsigned long execution_time;
   float rnd_val;
   char task_name[32];
   strcpy(task_name, task.name.c_str());
-  assert((period_ns != 0 && period_ns>task.wcet) || period_ns == 0);
+  assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
 
   // set task affinity
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
@@ -168,8 +168,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   // period definitions - used only by the starting task
   struct period_info pinfo;
-  pinfo.period_ns = period_ns;
-  periodic_task_init(&pinfo);
+  pinfo_init(&pinfo, period_us * 1000);
 
   unsigned long now_long, duration;
   unsigned long task_start_time;
@@ -204,7 +203,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         exit(1);
     }
     // the 1st line is the task relative deadline. all the following lines are actual execution times
-    dag_exec_time_f << dag_deadline << endl;
+    dag_exec_time_f << dag_deadline_us << endl;
   }
 
   // local copy of the incomming data. this copy is not required since it is shared var,
@@ -216,7 +215,11 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     // this variable is set by the starting task and read by the final task.
     // if this is the starting task, i.e. a task with no input queues, get the time the dag started.
     if (task.in_buffers.size() == 0){
-      now_long = (unsigned long) micros(); 
+      // on 1st iteration, this is the time pinfo_init() was called;
+      // on others, it is the exact (theoretical) wake-up time of the DAG;
+      // this is what we compute response times (and possible deadline misses) against
+      // (NOT the first time the task is scheduled by the OS, that can be a much later time)
+      now_long = pinfo_get_abstime_us(&pinfo);
       dag_start_time.push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
     }
@@ -273,7 +276,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
     // only the start task waits for the period
     if (task.in_buffers.size() == 0){
-        wait_rest_of_period(&pinfo);
+        pinfo_sum_period_and_wait(&pinfo);
     }
 
     // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
@@ -284,9 +287,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         LOG(INFO,"task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
         printf("task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
         dag_exec_time_f << duration << endl;
-        if (duration > dag_deadline){
+        if (duration > dag_deadline_us){
             printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
-            assert(duration <= dag_deadline);
+            assert(duration <= dag_deadline_us);
         }
     }
     ++iter;
