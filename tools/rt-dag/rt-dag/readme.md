@@ -187,14 +187,24 @@ $> make -j 6
 One can change the compilation parameters with *ccmake*:
 
   - The parameter **TASK_IMPL** indicates whether the DAG is implemented with threads or processes. The default value is threads;
-  - The parameter **INPUT_TYPE** selects input format: C header file or yaml;
+  - The parameter **INPUT_TYPE** selects input format: C header file or yaml. The default is yaml;
   - The parameter **LOG_LEVEL** can be used to change verbosity. The default value is 0, i.e. the lowest verbosity;
   - The parameter **BUFFER_LINES** indicated the buffer depth os each DAG edge. It represents how many messages can be stores before the *push* method is blocked.
 
 # How to run
 
+*rt-dag* internally sets the affinity and the kernel scheduling parameters
+for SCHED_DEADLINE. In order to have it working, it's necessary to disable kernel admission control by running this command on the target board:
+
 ```
-$> ./rt_dag
+sudo su
+echo -1 > /proc/sys/kernel/sched_rt_runtime_us
+```
+
+Next, proceed with the actual execution:
+
+```
+$> sudo ./rt_dag
 SEED: 123456
 n0, 50000
  ins: 
@@ -253,7 +263,7 @@ The number in parenthesis represents the iteration. Note that, since the tasks a
 
 In YAML mode, it needs to YAML input file as argument
 ```
-$> ./rt_dag <yaml_file>
+$> sudo ./rt_dag <yaml_file>
 ```
 
 # Main features
@@ -277,7 +287,11 @@ Generating an output similar to this one:
 
 ## SCHED_DEADLINE
 
-It uses the task definitions found in the input file to set SCHED_DEADLINE parameters.
+It uses the task definitions found in the input file to set SCHED_DEADLINE parameters. This can be checked by running:
+
+```
+$> chrt -p <PID>
+```
 
 # Design decisions
 

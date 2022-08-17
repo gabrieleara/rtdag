@@ -139,13 +139,14 @@ private:
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-// 'seed' passed in case one needs to add some randomization in the execution time
 static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   unsigned iter=0;
   unsigned i;
   char task_name[32];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
+  // 'seed' passed in case one needs to add some randomization in the execution time
+  (void) seed;
 
   // set task affinity
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
@@ -244,7 +245,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
     now_long = micros();
     duration = now_long - task_start_time;
-    printf("task %s (%u): task duration %lu us\n", task_name, iter, duration);
+    LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
     if (task.deadline > 0){
         exec_time_f << duration << endl;
     }
