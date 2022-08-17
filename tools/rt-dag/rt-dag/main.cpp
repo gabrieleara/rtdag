@@ -40,7 +40,6 @@
 
 #include <sys/types.h> // to create the directory
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include <unistd.h> // getpid
 

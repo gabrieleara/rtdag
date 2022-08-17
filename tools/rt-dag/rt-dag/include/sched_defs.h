@@ -1,7 +1,13 @@
 #ifndef SCHED_DEFS_H_
 #define SCHED_DEFS_H_
+#include <unistd.h>
 
 // sched_deadline syscall
+
+
+// to avoid redefinition warning when compiling in __aarch64__
+#ifndef __NR_sched_setattr 
+
 #ifdef __x86_64__
 #define __NR_sched_setattr		314
 #define __NR_sched_getattr		315
@@ -46,5 +52,7 @@ struct sched_attr {
     u64 sched_deadline;
     u64 sched_period;
 };
+
+#endif //__NR_sched_setattr
 
 #endif // SCHED_DEFS_H_
