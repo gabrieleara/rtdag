@@ -70,6 +70,7 @@ typedef struct {
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
     pthread_barrier_t *p_bar;
+    unsigned long *dag_resp_times;
 } task_type;
 
 
@@ -108,6 +109,12 @@ public:
           exit(1);
         }
         pthread_barrier_init(tasks[i].p_bar, NULL, input->get_n_tasks());
+
+        tasks[i].dag_resp_times = new unsigned long[input->get_repetitions()];
+        if (tasks[i].dag_resp_times == 0) {
+          std::cerr << "Could not allocate dag_resp_times array with " << input->get_repetitions() << " elems!" << std::endl;
+          exit(1);
+        }
     }
 
     // using shared_ptr ... no need to deallocated
@@ -181,22 +188,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     }
     // the 1st line is the task relative deadline. all the following lines are actual execution times
     exec_time_f << task.deadline << endl;
-  }
-
-  // file to save the dag execution time, created only by the end task
-  ofstream dag_exec_time_f;
-  if (task.out_buffers.size() == 0){
-    exec_time_fname = dag_name;  
-    exec_time_fname += "/";
-    exec_time_fname += dag_name;
-    exec_time_fname += ".log";
-    dag_exec_time_f.open(exec_time_fname, std::ios_base::app);
-    if (! dag_exec_time_f.is_open()){
-        printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
-        exit(1);
-    }
-    // the 1st line is the task relative deadline. all the following lines are actual execution times
-    dag_exec_time_f << dag_deadline_us << endl;
   }
 
   // local copy of the incomming data. this copy is not required since it is shared var,
@@ -288,12 +279,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         unsigned long last_dag_start;
         dag_start_time.pop(last_dag_start);
         duration = now_long - last_dag_start;
-        LOG(INFO,"task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
+        LOG(DEBUG, "task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
         printf("task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
-        dag_exec_time_f << duration << endl;
+        task.dag_resp_times[iter] = duration;
         if (duration > dag_deadline_us){
-            printf("ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
-            assert(duration <= dag_deadline_us);
+            // we do expect a few deadline misses, despite all precautions, we'll find them in the output file
+            LOG(DEBUG, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
         }
     }
     ++iter;
@@ -301,8 +292,24 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   if (task.deadline > 0){
     exec_time_f.close();
   }
+
   if (task.out_buffers.size() == 0){
-    dag_exec_time_f.close();
+      // file to save the dag execution time, created only by the end task
+      ofstream dag_exec_time_f;
+      exec_time_fname = dag_name;  
+      exec_time_fname += "/";
+      exec_time_fname += dag_name;
+      exec_time_fname += ".log";
+      dag_exec_time_f.open(exec_time_fname, std::ios_base::app);
+      if (! dag_exec_time_f.is_open()){
+          fprintf(stderr, "ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+          exit(1);
+      }
+      // the 1st line is the task relative deadline. all the following lines are actual execution times
+      dag_exec_time_f << dag_deadline_us << endl;
+      for (unsigned int i = 0; i < repetitions; i++)
+          dag_exec_time_f << task.dag_resp_times[i] << endl;
+      dag_exec_time_f.close();
   }
 }
 
