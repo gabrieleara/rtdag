@@ -45,10 +45,10 @@ add_definitions(-DTASK_IMPL=${TASK_IMPL_INT})
 # input implementation: C header or YAML input
 ##############
 
-set(INPUT_TYPE "header" CACHE STRING
+set(INPUT_TYPE "yaml" CACHE STRING
   "DAG input method")
-set(InputImplValues "header;yaml" CACHE STRING
-  "C header input (default) or yaml-based input.")
+set(InputImplValues "yaml;header" CACHE STRING
+  "yaml-based (default) or C header input.")
 set_property(CACHE INPUT_TYPE PROPERTY STRINGS ${InputImplValues})
 message(STATUS "Input implementation: '${INPUT_TYPE}-based'")
 IF (${INPUT_TYPE} STREQUAL "header")
