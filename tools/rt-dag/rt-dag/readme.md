@@ -296,6 +296,17 @@ pid <PID>'s current scheduling priority: 0
 pid <PID>'s current runtime/deadline/period parameters: 50000/100000/100000
 ```
 
+## Setting the CPU frequency
+
+Run the following commands in different terminals of the target platform:
+
+```
+watch cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+watch cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+```
+
+Then check whether the governor is set to *userspace* and the frequency is in accordance with the system definition.
+
 # Design decisions
 
 This application is not an *one-size fits all* solution for modeling DAG-like applications due to the complexities of application-level requirements and different ways to implement it. So, this section briefly explains the mindset behind the decision-making process. 
