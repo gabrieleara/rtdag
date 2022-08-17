@@ -139,11 +139,10 @@ private:
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
+// 'seed' passed in case one needs to add some randomization in the execution time
 static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   unsigned iter=0;
   unsigned i;
-  unsigned long execution_time;
-  float rnd_val;
   char task_name[32];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
@@ -158,13 +157,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
-
-  // each task has its own rnd engine to limit blocking for shared resources.
-  // the thread seed is built by summin up the main seed + a hash of the task name, which is unique
-  seed+= std::hash<std::string>{}(task_name);
-  std::mt19937_64 engine(static_cast<uint64_t> (seed));
-  // each task might use different distributions
-  std::uniform_real_distribution<double> zeroToOne(0.0, 1.0);
 
   // period definitions - used only by the starting task
   struct period_info pinfo;
@@ -233,20 +225,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, message.size(), message.get());
     }
 
-    // randomize the actual execution time of each iteration
-    rnd_val = zeroToOne(engine);
-    // 0.98 is used to reduce the actual execution by 2% such that, hopefully, the wcet is not always violated 
-    // TODO: there must be a better way to do this
-    float wcet = ((float)task.wcet)*0.98f;
-    execution_time = 4.0f/5.0f*wcet + 1.0f/5.0f*rnd_val;
+    unsigned long wcet = ((float)task.wcet)*0.95f;
     LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
     task_start_time = (unsigned long) micros(); 
     // runs busy waiting to mimic some actual processing.
     // using sleep or wait wont achieve the same result, for instance, in power consumption
-    Count_Time(execution_time);
-    //usleep(execution_time);
-    //Count_Time((int)wcet)
-    // usleep((int)wcet);
+    Count_Time(wcet);
 
     // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
     LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
