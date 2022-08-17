@@ -110,7 +110,7 @@ void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
     //  TODO: use 'cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq' for debug
     const unsigned ncpus = in_data->get_n_cpus();
     unsigned freq=0;
-    char cmd[64];
+    char cmd[128];
     // save the current cpu freq setup to be restored after the rt-dag execution
     save_cpu_freq();
 
@@ -120,16 +120,17 @@ void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
     // OBS: if your kernel is not configured with 'userspace' governor, you can still
     // set the freq you want by using the 'performance' governor and setting the 
     // frequency in 'scaling_max_freq'
-    int rv = system("sudo cpufreq-set -g userspace");
+    // source: https://askubuntu.com/questions/20271/how-do-i-set-the-cpu-frequency-scaling-governor-for-all-cores-at-once
+    int rv = system("sudo bash -c 'for ((i=0;i<$(nproc);i++)); do cpufreq-set -c $i -g userspace; done'");
     if (rv != 0) {
         fprintf(stderr, "Error: %s\n", strerror(errno));
         exit(1);
     }    
     for (unsigned i=0; i< ncpus; i++){
         freq = in_data->get_cpus_freq(i);
-        rv = snprintf(cmd, sizeof(cmd), "sudo cpufreq-set -f %dMhz",freq);
+        rv = snprintf(cmd, sizeof(cmd), "sudo cpufreq-set -c %d -f %dMhz",i, freq);
         assert((unsigned)rv < sizeof(cmd));
-        system(cmd);
+        rv = system(cmd);
         if (rv != 0) {
             fprintf(stderr, "Error: %s\n", strerror(errno));
             exit(1);

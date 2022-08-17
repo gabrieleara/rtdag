@@ -291,6 +291,9 @@ It uses the task definitions found in the input file to set SCHED_DEADLINE param
 
 ```
 $> chrt -p <PID>
+pid <PID>'s current scheduling policy: SCHED_DEADLINE
+pid <PID>'s current scheduling priority: 0
+pid <PID>'s current runtime/deadline/period parameters: 50000/100000/100000
 ```
 
 # Design decisions
