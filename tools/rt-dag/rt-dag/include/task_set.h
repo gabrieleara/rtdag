@@ -152,16 +152,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
   pin_to_core(task.affinity);
 
-  // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
-  LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
-  set_sched_deadline(task.wcet, task.deadline, task.deadline);
-
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
-
-  // period definitions - used only by the starting task
-  struct period_info pinfo;
-  pinfo_init(&pinfo, period_us * 1000);
 
   unsigned long now_long, duration;
   unsigned long task_start_time;
@@ -202,6 +194,15 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // local copy of the incomming data. this copy is not required since it is shared var,
   // but it is enforced to comply with Amalthea model 
   shared_mem_type message;
+
+  // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
+  LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
+  set_sched_deadline(task.wcet, task.deadline, task.deadline);
+
+  // period definitions - used only by the starting task
+  struct period_info pinfo;
+  pinfo_init(&pinfo, period_us * 1000);
+
   while(iter < repetitions){
     // check the end-to-end DAG deadline.
     // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
