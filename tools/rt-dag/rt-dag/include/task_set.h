@@ -154,7 +154,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
   LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
-  //set_sched_deadline(task.wcet, task.deadline, task.deadline);
+  set_sched_deadline(task.wcet, task.deadline, task.deadline);
 
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
