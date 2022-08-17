@@ -30,6 +30,7 @@
 #include "circular_buffer.h"
 #include "circular_shm.h"
 #include "sched_defs.h"
+#include <pthread.h>
 
 #include "input_wrapper.h"
 
@@ -68,6 +69,7 @@ typedef struct {
     unsigned long deadline; // in us
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
+    pthread_barrier_t *p_bar;
 } task_type;
 
 
@@ -100,6 +102,12 @@ public:
                 }
             }
         }
+        tasks[i].p_bar = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
+        if (tasks[i].p_bar == NULL) {
+          std::cerr << "Could not allocate pthread_barrier_t" << std::endl;
+          exit(1);
+        }
+        pthread_barrier_init(tasks[i].p_bar, NULL, input->get_n_tasks());
     }
 
     // using shared_ptr ... no need to deallocated
@@ -202,6 +210,16 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // period definitions - used only by the starting task
   struct period_info pinfo;
   pinfo_init(&pinfo, period_us * 1000);
+
+#if TASK_IMPL == 0 
+  // wait for all threads in the DAG to have been started up to this point
+  pthread_barrier_wait(task.p_bar);
+#endif
+
+  if (task.in_buffers.size() == 0){
+    // 1st DAG task waits 100ms to make sure its in-kernel CBS deadline is aligned with the abs deadline in pinfo
+    pinfo_sum_and_wait(&pinfo, 100*1000*1000);
+  }
 
   while(iter < repetitions){
     // check the end-to-end DAG deadline.
