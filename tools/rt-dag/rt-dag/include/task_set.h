@@ -167,28 +167,28 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
   pin_to_core(task.affinity);
 
-  // this is used only by the start and end tasks to check the end-to-end DAG deadline  
-  dag_deadline_type dag_start_time("dag_start_time");
-
+#ifdef NDEBUG
   unsigned long now_long, duration;
   unsigned long task_start_time;
 
-  // file to save the task execution time. the dummy tasks are not included
+  // this is used only by the start and end tasks to check the end-to-end DAG deadline  
+  dag_deadline_type dag_start_time("dag_start_time");
+
+  // file to save the task execution time in debug mode
   string exec_time_fname;
   ofstream exec_time_f;
-  if (task.deadline > 0){
-    exec_time_fname = dag_name;  
-    exec_time_fname += "/";
-    exec_time_fname += task.name;
-    exec_time_fname += ".log";
-    exec_time_f.open(exec_time_fname, std::ios_base::app);
-    if (! exec_time_f.is_open()){
-        printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
-        exit(1);
-    }
-    // the 1st line is the task relative deadline. all the following lines are actual execution times
-    exec_time_f << task.deadline << endl;
+  exec_time_fname = dag_name;  
+  exec_time_fname += "/";
+  exec_time_fname += task.name;
+  exec_time_fname += ".log";
+  exec_time_f.open(exec_time_fname, std::ios_base::app);
+  if (! exec_time_f.is_open()){
+      printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+      exit(1);
   }
+  // the 1st line is the task relative deadline. all the following lines are actual execution times
+  exec_time_f << task.deadline << endl;
+#endif // NDEBUG
 
   // local copy of the incomming data. this copy is not required since it is shared var,
   // but it is enforced to comply with Amalthea model 
@@ -213,6 +213,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   }
 
   while(iter < repetitions){
+#ifdef NDEBUG
     // check the end-to-end DAG deadline.
     // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
     // this variable is set by the starting task and read by the final task.
@@ -226,6 +227,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       dag_start_time.push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
     }
+#endif // NDEBUG
 
     // wait all incomming messages
     LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
@@ -238,7 +240,10 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
     unsigned long wcet = ((float)task.wcet)*0.95f;
     LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
+#ifdef NDEBUG
+    // the task execution time starts to count only after all incomming msgs were received
     task_start_time = (unsigned long) micros(); 
+#endif
     // runs busy waiting to mimic some actual processing.
     // using sleep or wait wont achieve the same result, for instance, in power consumption
     Count_Time(wcet);
@@ -253,10 +258,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     }
     LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
+#ifdef NDEBUG
     now_long = micros();
     duration = now_long - task_start_time;
     LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
+
     if (task.deadline > 0){
+        // write the task execution time into its log file
         exec_time_f << duration << endl;
     }
     // check the duration of the tasks if this is in conformance w their wcet.
@@ -267,11 +275,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     if (duration > task.deadline && task.deadline > 0){
         printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
         //TODO: stop or continue ?
-    }
-
-    // only the start task waits for the period
-    if (task.in_buffers.size() == 0){
-        pinfo_sum_period_and_wait(&pinfo);
     }
 
     // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
@@ -287,8 +290,18 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             LOG(DEBUG, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
         }
     }
+#endif // NDEBUG
+
+    // only the start task waits for the period
+    // OBS: not sure if this part of the code is in its correct/most precise position
+    if (task.in_buffers.size() == 0){
+        pinfo_sum_period_and_wait(&pinfo);
+    }
+
     ++iter;
   }
+
+#ifdef NDEBUG
   if (task.deadline > 0){
     exec_time_f.close();
   }
@@ -311,6 +324,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
           dag_exec_time_f << task.dag_resp_times[i] << endl;
       dag_exec_time_f.close();
   }
+#endif // NDEBUG
+
 }
 
     void thread_launcher(unsigned seed){
