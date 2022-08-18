@@ -279,8 +279,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         unsigned long last_dag_start;
         dag_start_time.pop(last_dag_start);
         duration = now_long - last_dag_start;
-        LOG(DEBUG, "task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
-        LOG(INFO,"task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
+        LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n", task_name, iter, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
         task.dag_resp_times[iter] = duration;
         if (duration > dag_deadline_us){
             // we do expect a few deadline misses, despite all precautions, we'll find them in the output file
