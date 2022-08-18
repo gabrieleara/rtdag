@@ -146,8 +146,6 @@ public:
 
   const char *get_dagset_name() const {return input->get_dagset_name();}
 private:
-    
-    
     // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
     vector<int> *pid_list;
 
@@ -259,16 +257,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
 
 #ifdef NDEBUG
-    if (task.deadline > 0){
-        // write the task execution time into its log file
-        exec_time_f << duration << endl;
-    }
+    // write the task execution time into its log file
+    exec_time_f << duration << endl;
     // check the duration of the tasks if this is in conformance w their wcet.
-    // tasks with wcet == 0 or deadline==0, like initial and final tasks, are not checked 
-    if (duration > task.wcet && task.wcet > 0){
+    if (duration > task.wcet){
         printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, duration, task.wcet);
     }
-    if (duration > task.deadline && task.deadline > 0){
+    if (duration > task.deadline){
         printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
         //TODO: stop or continue ?
     }
@@ -297,9 +292,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   }
 
 #ifdef NDEBUG
-  if (task.deadline > 0){
-    exec_time_f.close();
-  }
+  exec_time_f.close();
 #endif // NDEBUG
 
   if (task.out_buffers.size() == 0){
