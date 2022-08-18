@@ -167,15 +167,15 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
   pin_to_core(task.affinity);
 
-#ifdef NDEBUG
   unsigned long now_long, duration;
   unsigned long task_start_time;
+  string exec_time_fname;
 
   // this is used only by the start and end tasks to check the end-to-end DAG deadline  
   dag_deadline_type dag_start_time("dag_start_time");
 
+#ifdef NDEBUG
   // file to save the task execution time in debug mode
-  string exec_time_fname;
   ofstream exec_time_f;
   exec_time_fname = dag_name;  
   exec_time_fname += "/";
@@ -240,10 +240,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
     unsigned long wcet = ((float)task.wcet)*0.95f;
     LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
-#ifdef NDEBUG
     // the task execution time starts to count only after all incomming msgs were received
     task_start_time = (unsigned long) micros(); 
-#endif
     // runs busy waiting to mimic some actual processing.
     // using sleep or wait wont achieve the same result, for instance, in power consumption
     Count_Time(wcet);
@@ -258,11 +256,11 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     }
     LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
-#ifdef NDEBUG
     now_long = micros();
     duration = now_long - task_start_time;
     LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
 
+#ifdef NDEBUG
     if (task.deadline > 0){
         // write the task execution time into its log file
         exec_time_f << duration << endl;
@@ -276,6 +274,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
         //TODO: stop or continue ?
     }
+#endif // NDEBUG
 
     // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
     if (task.out_buffers.size() == 0){
@@ -283,14 +282,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         dag_start_time.pop(last_dag_start);
         duration = now_long - last_dag_start;
         LOG(DEBUG, "task %s (%u): dag duration %lu - %lu = %lu us = %lu ms = %lu s\n\n", task_name, iter, now_long, last_dag_start, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
-        printf("task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
+        LOG(INFO,"task %s (%u): dag  duration %lu us\n\n", task_name, iter,  duration);
         task.dag_resp_times[iter] = duration;
         if (duration > dag_deadline_us){
             // we do expect a few deadline misses, despite all precautions, we'll find them in the output file
             LOG(DEBUG, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
         }
     }
-#endif // NDEBUG
 
     // only the start task waits for the period
     // OBS: not sure if this part of the code is in its correct/most precise position
@@ -305,6 +303,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   if (task.deadline > 0){
     exec_time_f.close();
   }
+#endif // NDEBUG
 
   if (task.out_buffers.size() == 0){
       // file to save the dag execution time, created only by the end task
@@ -324,7 +323,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
           dag_exec_time_f << task.dag_resp_times[i] << endl;
       dag_exec_time_f.close();
   }
-#endif // NDEBUG
 
 }
 
