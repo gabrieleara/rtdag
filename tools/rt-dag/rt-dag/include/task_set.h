@@ -213,7 +213,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   }
 
   while(iter < repetitions){
-#ifdef NDEBUG
     // check the end-to-end DAG deadline.
     // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
     // this variable is set by the starting task and read by the final task.
@@ -227,7 +226,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       dag_start_time.push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
     }
-#endif // NDEBUG
 
     // wait all incomming messages
     LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
