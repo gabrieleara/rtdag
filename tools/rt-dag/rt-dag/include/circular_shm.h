@@ -226,7 +226,7 @@ private:
         fd = shm_open(shmem_name.c_str(), O_CREAT | O_RDWR, 0666);
 
         if (fd == -1) {
-            printf ("ERROR: shm_open\n");
+            perror("ERROR: shm_open");
             return nullptr;
         }
         if (ftruncate(fd, size_bytes)) {
