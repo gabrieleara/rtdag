@@ -336,6 +336,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }        
     }
 
+#if TASK_IMPL != 0 
     void process_launcher(unsigned seed){
         this->spawn_proc(tasks[0],seed,input->get_period());
         for(unsigned i=1;i<input->get_n_tasks();++i){
@@ -390,6 +391,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             LOG(INFO,"parent %d forked task %d\n", getppid(), pid);
         }
     }
+#endif
 
     static void set_sched_deadline(unsigned long runtime, unsigned long deadline, unsigned long period ){
         struct sched_attr sa ;
