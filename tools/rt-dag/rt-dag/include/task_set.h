@@ -68,6 +68,7 @@ typedef struct {
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
     pthread_barrier_t *p_bar;
+    dag_deadline_type *p_dag_start_time;
     unsigned long *dag_resp_times;
 } task_type;
 
@@ -88,6 +89,17 @@ public:
         if (rv != 0) {
           fprintf(stderr, "barrier_init() failed: %s!\n", strerror(rv));
           exit(1);
+        }
+        // this is used only by the start and end tasks to check the end-to-end DAG deadline  
+        dag_deadline_type *p_dag_start_time = new dag_deadline_type("dag_start_time");
+        if (p_dag_start_time == 0) {
+          std::cerr << "Could not allocate dag_deadline_type" << std::endl;
+          exit(1);
+        }
+        unsigned long *dag_resp_times = new unsigned long[input->get_repetitions()];
+        if (dag_resp_times == 0) {
+            std::cerr << "Could not allocate dag_resp_times array with " << input->get_repetitions() << " elems!" << std::endl;
+            exit(1);
         }
         tasks.resize(input->get_n_tasks());
         for(unsigned int i=0; i < input->get_n_tasks(); ++i){
@@ -110,12 +122,9 @@ public:
                 }
             }
             tasks[i].p_bar = p_bar;
-
-            tasks[i].dag_resp_times = new unsigned long[input->get_repetitions()];
-            if (tasks[i].dag_resp_times == 0) {
-                std::cerr << "Could not allocate dag_resp_times array with " << input->get_repetitions() << " elems!" << std::endl;
-                exit(1);
-            }
+            tasks[i].p_dag_start_time = p_dag_start_time;
+            // only the DAG sink should use this, but you never know...
+            tasks[i].dag_resp_times = dag_resp_times;
         }
     }
 
@@ -170,9 +179,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   unsigned long now_long, duration;
   unsigned long task_start_time;
   string exec_time_fname;
-
-  // this is used only by the start and end tasks to check the end-to-end DAG deadline  
-  dag_deadline_type dag_start_time("dag_start_time");
 
 #ifdef NDEBUG
   // file to save the task execution time in debug mode
@@ -230,7 +236,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       // this is what we compute response times (and possible deadline misses) against
       // (NOT the first time the task is scheduled by the OS, that can be a much later time)
       now_long = pinfo_get_abstime_us(&pinfo);
-      dag_start_time.push(now_long);
+      task.p_dag_start_time->push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
       LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
     }
@@ -282,7 +288,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
     if (task.out_buffers.size() == 0){
         unsigned long last_dag_start;
-        dag_start_time.pop(last_dag_start);
+        task.p_dag_start_time->pop(last_dag_start);
         duration = now_long - last_dag_start;
         LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n", task_name, iter, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
         task.dag_resp_times[iter] = duration;
