@@ -78,16 +78,25 @@ public:
     std::unique_ptr< input_wrapper > input;
 
     TaskSet(std::unique_ptr< input_wrapper > &in_data): input(move(in_data)){
-        unsigned i,c;
         pid_list = nullptr;
+        pthread_barrier_t *p_bar = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
+        if (p_bar == NULL) {
+          std::cerr << "Could not allocate pthread_barrier_t" << std::endl;
+          exit(1);
+        }
+        int rv = pthread_barrier_init(p_bar, NULL, input->get_n_tasks());
+        if (rv != 0) {
+          fprintf(stderr, "barrier_init() failed: %s!\n", strerror(rv));
+          exit(1);
+        }
         tasks.resize(input->get_n_tasks());
-        for(i=0;i<input->get_n_tasks();++i){
+        for(unsigned int i=0; i < input->get_n_tasks(); ++i){
             tasks[i].name = input->get_tasks_name(i);
             tasks[i].wcet = input->get_tasks_wcet(i);
             tasks[i].deadline = input->get_tasks_rel_deadline(i);
             tasks[i].affinity = input->get_tasks_affinity(i);
             // create the edges/queues w unique names
-            for(c=0;c<input->get_n_tasks();++c){
+            for(unsigned int c = 0; c < input->get_n_tasks(); ++c){
                 if (input->get_adjacency_matrix(i,c)!=0){
                     // TODO: the edges are now implementing 1:1 communication, 
                     // but it would be possible to have multiple readers
@@ -100,18 +109,13 @@ public:
                     tasks[c].in_buffers.push_back(new_edge);
                 }
             }
-        }
-        tasks[i].p_bar = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
-        if (tasks[i].p_bar == NULL) {
-          std::cerr << "Could not allocate pthread_barrier_t" << std::endl;
-          exit(1);
-        }
-        pthread_barrier_init(tasks[i].p_bar, NULL, input->get_n_tasks());
+            tasks[i].p_bar = p_bar;
 
-        tasks[i].dag_resp_times = new unsigned long[input->get_repetitions()];
-        if (tasks[i].dag_resp_times == 0) {
-          std::cerr << "Could not allocate dag_resp_times array with " << input->get_repetitions() << " elems!" << std::endl;
-          exit(1);
+            tasks[i].dag_resp_times = new unsigned long[input->get_repetitions()];
+            if (tasks[i].dag_resp_times == 0) {
+                std::cerr << "Could not allocate dag_resp_times array with " << input->get_repetitions() << " elems!" << std::endl;
+                exit(1);
+            }
         }
     }
 
