@@ -200,7 +200,10 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   // period definitions - used only by the starting task
   struct period_info pinfo;
-  pinfo_init(&pinfo, period_us * 1000);
+  if (task.in_buffers.size() == 0) {
+      pinfo_init(&pinfo, period_us * 1000);
+      LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
+  }
 
 #if TASK_IMPL == 0 
   // wait for all threads in the DAG to have been started up to this point
@@ -210,10 +213,10 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 #endif
 
   if (task.in_buffers.size() == 0){
-    // 1st DAG task waits 100ms to make sure its in-kernel CBS deadline is aligned with the abs deadline in pinfo
-    LOG(DEBUG, "waiting 100ms\n");
-    pinfo_sum_and_wait(&pinfo, 100*1000*1000);
-    LOG(DEBUG, "woken up\n");
+      // 1st DAG task waits 100ms to make sure its in-kernel CBS deadline is aligned with the abs deadline in pinfo
+      LOG(DEBUG, "waiting 100ms\n");
+      pinfo_sum_and_wait(&pinfo, 100*1000*1000);
+      LOG(DEBUG, "woken up: pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
   }
 
   while(iter < repetitions){
@@ -229,6 +232,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       now_long = pinfo_get_abstime_us(&pinfo);
       dag_start_time.push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
+      LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
     }
 
     // wait all incomming messages
@@ -291,7 +295,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     // only the start task waits for the period
     // OBS: not sure if this part of the code is in its correct/most precise position
     if (task.in_buffers.size() == 0){
+        LOG(DEBUG, "waiting till pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
         pinfo_sum_period_and_wait(&pinfo);
+        LOG(DEBUG, "woken up on new instance, pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
     }
 
     ++iter;
