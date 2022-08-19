@@ -204,12 +204,16 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
 #if TASK_IMPL == 0 
   // wait for all threads in the DAG to have been started up to this point
-  pthread_barrier_wait(task.p_bar);
+  LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void*)task.p_bar, task.name.c_str());
+  int rv = pthread_barrier_wait(task.p_bar);
+  LOG(DEBUG, "barrier_wait() returned: %d\n", rv);
 #endif
 
   if (task.in_buffers.size() == 0){
     // 1st DAG task waits 100ms to make sure its in-kernel CBS deadline is aligned with the abs deadline in pinfo
+    LOG(DEBUG, "waiting 100ms\n");
     pinfo_sum_and_wait(&pinfo, 100*1000*1000);
+    LOG(DEBUG, "woken up\n");
   }
 
   while(iter < repetitions){
