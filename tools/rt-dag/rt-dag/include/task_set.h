@@ -42,17 +42,15 @@ using namespace std;
 #if TASK_IMPL == 0 
     // thread-based task implementation
     using cbuffer = circular_buffer <shared_mem_type,BUFFER_LINES>;
+    using dag_deadline_type = circular_buffer <unsigned long,1>;
 #else
     // process-based task implementation
     using cbuffer = circular_shm <shared_mem_type,BUFFER_LINES>;
+    using dag_deadline_type = circular_shm <unsigned long,1>;
 #endif
 
 using ptr_cbuffer = std::shared_ptr< cbuffer >;
 using vet_cbuffer = std::vector< ptr_cbuffer >;
-
-// POSIX shared memory are used both for thread/process task implementation
-using dag_deadline_type = circular_shm <unsigned long,1>;
-
 
 typedef struct {
     std::unique_ptr< cbuffer > buff;
