@@ -123,7 +123,8 @@ void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
     // source: https://askubuntu.com/questions/20271/how-do-i-set-the-cpu-frequency-scaling-governor-for-all-cores-at-once
     int rv = system("sudo bash -c 'for ((i=0;i<$(nproc);i++)); do cpufreq-set -c $i -g userspace; done'");
     if (rv != 0) {
-        fprintf(stderr, "Error: %s\n", strerror(errno));
+        perror("ERROR setting governor");
+        printf("ERROR: make sure the OS has the 'userspace' governor enabled by running 'cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_available_governors'.")
         exit(1);
     }    
     for (unsigned i=0; i< ncpus; i++){
@@ -132,7 +133,7 @@ void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
         assert((unsigned)rv < sizeof(cmd));
         rv = system(cmd);
         if (rv != 0) {
-            fprintf(stderr, "Error: %s\n", strerror(errno));
+            perror("ERROR setting the CPU frequency");
             exit(1);
         }
     }
@@ -181,7 +182,11 @@ int main(int argc, char* argv[]) {
   // create the directory where execution time are saved
   struct stat st = {0};
   if (stat(task_set.get_dagset_name(), &st) == -1) {
-    mkdir(task_set.get_dagset_name(), 0700);
+    int rv = mkdir(task_set.get_dagset_name(), 0700);
+    if (rv != 0) {
+        perror("ERROR creating directory");
+        exit(1);
+    }    
   }
 
   // pass pid_list such that tasks can be killed with CTRL+C

@@ -230,7 +230,7 @@ private:
             return nullptr;
         }
         if (ftruncate(fd, size_bytes)) {
-            printf ("ERROR: ftruncate\n");
+            perror ("ERROR: ftruncate");
             close(fd);
             return nullptr;
         }
@@ -239,7 +239,7 @@ private:
         close(fd);
 
         if (ret == MAP_FAILED) {
-            printf ("ERROR: mmap\n");
+            perror ("ERROR: mmap");
             return nullptr;
         }
         return ret;
