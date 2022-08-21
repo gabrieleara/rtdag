@@ -395,7 +395,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     void spawn_proc(const task_type& task, const unsigned seed, const unsigned period){
         int pid = (int)fork();
         if (pid < 0){
-            perror("ERROR Fork Failed:");
+            perror("ERROR Fork Failed");
             exit(-1);
         }
         if (pid == 0){
@@ -412,7 +412,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     static void set_sched_deadline(unsigned long runtime, unsigned long deadline, unsigned long period ){
         struct sched_attr sa ;
         if (sched_getattr(0, &sa, sizeof(sa), 0) < 0) {
-            perror("ERROR: sched_getattr()");
+            perror("ERROR sched_getattr()");
             exit(1);
         }
         sa.sched_policy   = SCHED_DEADLINE;
@@ -422,7 +422,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         sa.sched_period   = period;
         if (sched_setattr( 0, &sa, 0) < 0)
         {
-            perror("ERROR: sched_setattr()");
+            perror("ERROR sched_setattr()");
             printf("ERROR: make sure you run rt-dag with 'sudo' and also 'echo -1 > /proc/sys/kernel/sched_rt_runtime_us' is executed before running rt-dag\n");
             exit(1);
         }
