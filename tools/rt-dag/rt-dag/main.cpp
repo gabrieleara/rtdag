@@ -124,7 +124,7 @@ void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
     int rv = system("sudo bash -c 'for ((i=0;i<$(nproc);i++)); do cpufreq-set -c $i -g userspace; done'");
     if (rv != 0) {
         perror("ERROR setting governor");
-        printf("ERROR: make sure the OS has the 'userspace' governor enabled by running 'cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_available_governors'.")
+        printf("ERROR: make sure the OS has the 'userspace' governor enabled by running 'cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_available_governors'.");
         exit(1);
     }    
     for (unsigned i=0; i< ncpus; i++){
