@@ -287,7 +287,14 @@ Generating an output similar to this one:
 
 ## SCHED_DEADLINE
 
-It uses the task definitions found in the input file to set SCHED_DEADLINE parameters. This can be checked by running:
+As a default configuration, Linux wont allow to set SCHED_DEADLINE on tasks with affinity constraints.
+To enable it, it is required to run this command before running *rt-dag*:
+
+```
+echo -1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us
+```
+
+*rt-dag* uses the task definitions found in the input file to set SCHED_DEADLINE parameters. This can be checked by running:
 
 ```
 $> chrt -p <PID>

@@ -423,7 +423,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         if (sched_setattr( 0, &sa, 0) < 0)
         {
             perror("ERROR sched_setattr()");
-            printf("ERROR: make sure you run rt-dag with 'sudo' and also 'echo -1 > /proc/sys/kernel/sched_rt_runtime_us' is executed before running rt-dag\n");
+            printf("ERROR: make sure you run rt-dag with 'sudo' and also 'echo -1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us' is executed before running rt-dag\n");
             exit(1);
         }
     }
