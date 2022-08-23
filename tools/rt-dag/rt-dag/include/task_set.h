@@ -337,7 +337,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
           dag_exec_time_f << task.dag_resp_times[i] << endl;
       dag_exec_time_f.close();
   }
-
 }
 
     void thread_launcher(unsigned seed){

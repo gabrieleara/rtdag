@@ -182,7 +182,8 @@ int main(int argc, char* argv[]) {
   // create the directory where execution time are saved
   struct stat st = {0};
   if (stat(task_set.get_dagset_name(), &st) == -1) {
-    int rv = mkdir(task_set.get_dagset_name(), 0700);
+    // permisions required in order to allow using rsync since rt-dag is run as root in the target computer
+    int rv = mkdir(task_set.get_dagset_name(), 0777);
     if (rv != 0) {
         perror("ERROR creating directory");
         exit(1);
