@@ -172,6 +172,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // 'seed' passed in case one needs to add some randomization in the execution time
   (void) seed;
 
+  // sched_deadline does not support tasks shorter than 1024 ns
+  if (task.wcet < 1024){
+    fprintf(stderr,"ERROR: sched_deadline does not support tasks shorter than 1024 ns.\n");
+    exit(1);
+  }
+
   // set task affinity
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
   pin_to_core(task.affinity);
