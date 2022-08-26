@@ -221,6 +221,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // wait for all threads in the DAG to have been started up to this point
   LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void*)task.p_bar, task.name.c_str());
   int rv = pthread_barrier_wait(task.p_bar);
+  (void) rv;
   LOG(DEBUG, "barrier_wait() returned: %d\n", rv);
 #endif
 
@@ -332,6 +333,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
           exit(1);
       }
       // the 1st line is the task relative deadline. all the following lines are actual execution times
+      // TODO tiny hidden bug here that happens only when the experiment is run multiple times.
+      // it must 1st detect if the file exist. If so, then the deadline is not written again in the file.
       dag_exec_time_f << dag_deadline_us << endl;
       for (unsigned int i = 0; i < repetitions; i++)
           dag_exec_time_f << task.dag_resp_times[i] << endl;
