@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # basic definitions
 ##############
 # compilation parameters
-add_compile_options(-Wall -Wno-long-long -pedantic)
+add_compile_options(-Wall -Wno-variadic-macros -Wno-long-long -pedantic)
 # this code must only be compiled in debug mode, otherwise the busy waiting code is optimized
 set (CMAKE_BUILD_TYPE "Debug")
 message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")

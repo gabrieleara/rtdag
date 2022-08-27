@@ -29,6 +29,7 @@
 #include "shared_mem_type.h"
 #include "circular_buffer.h"
 #include "circular_shm.h"
+#include "multi_queue.h"
 #include "sched_defs.h"
 #include <pthread.h>
 
@@ -53,8 +54,10 @@ using ptr_cbuffer = std::shared_ptr< cbuffer >;
 using vet_cbuffer = std::vector< ptr_cbuffer >;
 
 typedef struct {
-    std::unique_ptr< cbuffer > buff;
-    unsigned size; // in bytes
+    multi_queue_t *p_mq;   // the multibuffer to push to
+    int mq_push_idx;       // the index with which to push to mbuf
+    int msg_size;          // in bytes
+    char *msg_buf;
     char name[32];
 } edge_type;
 
@@ -62,23 +65,42 @@ using ptr_edge = std::shared_ptr< edge_type >;
 
 typedef struct {
     string name;
-    unsigned affinity; // which core the task is mapped
-    unsigned long wcet; // in us 
-    unsigned long deadline; // in us
+    unsigned affinity;          // which core the task is mapped
+    unsigned long wcet;         // in us 
+    unsigned long deadline;     // in us
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
+    multi_queue_t mq;           // used by all elements except the DAG source
     pthread_barrier_t *p_bar;
-    dag_deadline_type *p_dag_start_time;
-    unsigned long *dag_resp_times;
+    dag_deadline_type *p_dag_start_time; // used only by the DAG source and sink tasks
+    unsigned long *dag_resp_times;       // used only by the DAG sink
 } task_type;
 
 
-class TaskSet{
+class TaskSet {
 public:
     vector< task_type > tasks;
     std::unique_ptr< input_wrapper > input;
 
-    TaskSet(std::unique_ptr< input_wrapper > &in_data): input(move(in_data)){
+    static std::vector<int> get_output_tasks(const input_wrapper *input, int task_id) {
+      assert(task_id < (int)input->get_n_tasks());
+      std::vector<int> v;
+      for (unsigned int c = 0; c < input->get_n_tasks(); ++c)
+        if (input->get_adjacency_matrix(task_id, c) != 0)
+          v.push_back(c);
+      return v;
+    }
+
+    static std::vector<int> get_input_tasks(const input_wrapper *input, int task_id) {
+      assert(task_id < (int)input->get_n_tasks());
+      std::vector<int> v;
+      for (unsigned int c = 0; c < input->get_n_tasks(); ++c)
+        if (input->get_adjacency_matrix(c, task_id) != 0)
+          v.push_back(c);
+      return v;
+    }
+
+    TaskSet(std::unique_ptr< input_wrapper > &in_data): input(move(in_data)) {
         pid_list = nullptr;
         pthread_barrier_t *p_bar = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
         if (p_bar == NULL) {
@@ -97,28 +119,29 @@ public:
           exit(1);
         }
         unsigned long *dag_resp_times = new unsigned long[input->get_repetitions()];
-        if (dag_resp_times == 0) {
-            std::cerr << "Could not allocate dag_resp_times array with " << input->get_repetitions() << " elems!" << std::endl;
-            exit(1);
-        }
         tasks.resize(input->get_n_tasks());
-        for(unsigned int i=0; i < input->get_n_tasks(); ++i){
+        // here we loop over destination tasks
+        for (unsigned int i = 0; i < input->get_n_tasks(); ++i) {
             tasks[i].name = input->get_tasks_name(i);
             tasks[i].wcet = input->get_tasks_wcet(i);
             tasks[i].deadline = input->get_tasks_rel_deadline(i);
             tasks[i].affinity = input->get_tasks_affinity(i);
-            // create the edges/queues w unique names
-            for(unsigned int c = 0; c < input->get_n_tasks(); ++c){
-                if (input->get_adjacency_matrix(i,c)!=0){
-                    // TODO: the edges are now implementing 1:1 communication, 
-                    // but it would be possible to have multiple readers
+            std::vector<int> in_tasks = get_input_tasks(input.get(), i);
+            // create the edges/queues w unique names (unless we're the DAG source)
+            if (in_tasks.size() > 0) {
+                multi_queue_init(&tasks[i].mq, in_tasks.size());
+                for (int j = 0; j < (int)in_tasks.size(); j++) {
+                    int s = in_tasks[j];
                     ptr_edge new_edge(new edge_type);
-                    snprintf(new_edge->name, 32, "n%u_n%u", i,c);
-                    new_edge->buff = (std::unique_ptr< cbuffer >) new cbuffer(new_edge->name);
+                    snprintf(new_edge->name, sizeof(new_edge->name), "n%u_n%u", s,i);
+                    // an edge multi-queue p_mq points to the input queue of the destination task i
+                    new_edge->p_mq = &tasks[i].mq;
+                    new_edge->mq_push_idx = j;
                     // this message size includes the string terminator, thus, threre is no +1 here
-                    new_edge->size = input->get_adjacency_matrix(i,c);
-                    tasks[i].out_buffers.push_back(new_edge);
-                    tasks[c].in_buffers.push_back(new_edge);
+                    new_edge->msg_size = input->get_adjacency_matrix(s, i);
+                    new_edge->msg_buf = new char[new_edge->msg_size];
+                    tasks[i].in_buffers.push_back(new_edge);
+                    tasks[s].out_buffers.push_back(new_edge);
                 }
             }
             tasks[i].p_bar = p_bar;
@@ -140,7 +163,15 @@ public:
     }
 
     // using shared_ptr ... no need to deallocated
-    ~TaskSet(){    }
+    ~TaskSet() {
+      for (int i = 0; i < (int)input->get_n_tasks(); i++) {
+        if (tasks[i].in_buffers.size() > 0) {
+          multi_queue_cleanup(&tasks[i].mq);
+          for (auto edge : tasks[i].in_buffers)
+            delete[] edge->msg_buf;
+        }
+      }
+    }
 
     void print() const{
         unsigned i,c;
@@ -148,11 +179,11 @@ public:
             cout << tasks[i].name << ", wcet: " << tasks[i].wcet  << ", deadline: " << tasks[i].deadline << ", affinity: " << tasks[i].affinity << endl;
             cout << " ins: ";
             for(c=0;c<tasks[i].in_buffers.size();++c)
-                cout << tasks[i].in_buffers[c]->name << "(" << tasks[i].in_buffers[c]->size << "), ";
+                cout << tasks[i].in_buffers[c]->name << "(" << tasks[i].in_buffers[c]->msg_size << "), ";
             cout << endl;
             cout << " outs: ";
             for(c=0;c<tasks[i].out_buffers.size();++c)
-                cout << tasks[i].out_buffers[c]->name << "(" << tasks[i].out_buffers[c]->size << "), ";
+              cout << tasks[i].out_buffers[c]->name << "(" << tasks[i].out_buffers[c]->msg_size << "," << tasks[i].out_buffers[c]->mq_push_idx << "), ";
             cout << endl;
         }    
   }
@@ -176,7 +207,6 @@ private:
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
 static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   unsigned iter=0;
-  unsigned i;
   char task_name[32];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
@@ -257,15 +287,16 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       task.p_dag_start_time->push(now_long);
       LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
       LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
-    }
-
-    // wait all incomming messages
-    LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
-    for(i=0;i<task.in_buffers.size();++i){
-        LOG(INFO,"task %s (%u), waiting buffer %s(%d)\n", task_name, iter, task.in_buffers[i]->name, task.in_buffers[i]->size);
-        // it blocks until the data is produced
-        task.in_buffers[i]->buff->pop(message);
-        LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, message.size(), message.get());
+    } else {
+      // wait all incomming messages
+      LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
+      LOG(INFO,"task %s (%u), waiting on pop(), for %d tasks to push()\n", task_name, iter, (int)task.in_buffers.size());
+    // don't need to retrieve received buffers, they're already in in_buffer[]
+      multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
+      for (int i = 0; i < (int)task.in_buffers.size(); i++) {
+        assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
+        LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+      }
     }
 
     unsigned long wcet = ((float)task.wcet)*0.95f;
@@ -278,10 +309,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
     // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
     LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
-    for(i=0;i<task.out_buffers.size();++i){
-        message.set(task_name,iter,task.out_buffers[i]->size);
-        //assert(message.size() < task.out_buffers[i]->size);
-        task.out_buffers[i]->buff->push(message);
+    for(int i=0;i<(int)task.out_buffers.size();++i){
+      int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
+        if (len < task.out_buffers[i]->msg_size) {
+          memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
+          task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+        }
+        multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
         LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, message.size(), message.get());
     }
     LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);

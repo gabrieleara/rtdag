@@ -22,72 +22,73 @@ typedef struct {
   int *waiting;
 } multi_queue_t;
 
-static int multi_queue_init(multi_queue_t *this, int num_elems) {
-  this->elems = malloc(sizeof(*this->elems) * num_elems);
-  if (this->elems == NULL)
+static int multi_queue_init(multi_queue_t *that, int num_elems) {
+  that->elems = (void**)malloc(sizeof(*that->elems) * num_elems);
+  if (that->elems == NULL)
     goto oom1;
-  this->cv_busy = malloc(sizeof(*this->cv_busy) * num_elems);
-  if (this->cv_busy == NULL)
+  that->cv_busy = (pthread_cond_t *)malloc(sizeof(*that->cv_busy) * num_elems);
+  if (that->cv_busy == NULL)
     goto oom2;
-  this->waiting = malloc(sizeof(*this->waiting) * num_elems);
-  if (this->waiting == NULL)
+  that->waiting = (int *)malloc(sizeof(*that->waiting) * num_elems);
+  if (that->waiting == NULL)
     goto oom3;
-  this->num_elems = num_elems;
-  this->busy_mask = 0;
-  pthread_mutex_init(&this->mtx, NULL);
-  pthread_cond_init(&this->cv_ready, NULL);
+  that->num_elems = num_elems;
+  that->busy_mask = 0;
+  pthread_mutex_init(&that->mtx, NULL);
+  pthread_cond_init(&that->cv_ready, NULL);
   for (int i = 0; i < num_elems; i++) {
-    pthread_cond_init(&this->cv_busy[i], NULL);
-    this->waiting[i] = 0;
+    pthread_cond_init(&that->cv_busy[i], NULL);
+    that->waiting[i] = 0;
   }
   return 1;
 
  oom3:
-  free(this->cv_busy);
+  free(that->cv_busy);
  oom2:
-  free(this->elems);
+  free(that->elems);
  oom1:
   return 0;
 }
 
 // may block if the i-th elem is busy
-static void multi_queue_push(multi_queue_t *this, int i, void *elem) {
-  pthread_mutex_lock(&this->mtx);
-  while (this->busy_mask & (1 << i)) {
-    this->waiting[i]++;
+static void multi_queue_push(multi_queue_t *that, int i, void *elem) {
+  pthread_mutex_lock(&that->mtx);
+  while (that->busy_mask & (1 << i)) {
+    that->waiting[i]++;
     dbg_printf("push() suspending...\n");
-    pthread_cond_wait(&this->cv_busy[i], &this->mtx);
+    pthread_cond_wait(&that->cv_busy[i], &that->mtx);
     dbg_printf("push() woken up...\n");
-    this->waiting[i]--;
+    that->waiting[i]--;
   }
-  this->elems[i] = elem;
-  this->busy_mask |= (1 << i);
-  if (this->busy_mask == (1 << this->num_elems) - 1)
-    pthread_cond_signal(&this->cv_ready);
-  pthread_mutex_unlock(&this->mtx);
+  that->elems[i] = elem;
+  that->busy_mask |= (1 << i);
+  if (that->busy_mask == (1 << that->num_elems) - 1)
+    pthread_cond_signal(&that->cv_ready);
+  pthread_mutex_unlock(&that->mtx);
 }
 
 // only unblock once all size elems have been popped
-static void multi_queue_pop(multi_queue_t *this, void **elems, int num_elems) {
-  assert(num_elems == this->num_elems);
-  pthread_mutex_lock(&this->mtx);
-  while (this->busy_mask != (1 << this->num_elems) - 1) {
-    dbg_printf("pop() suspending (busy_mask=%x)...\n", this->busy_mask);
-    pthread_cond_wait(&this->cv_ready, &this->mtx);
+static void multi_queue_pop(multi_queue_t *that, void **elems, int num_elems) {
+  assert(num_elems == that->num_elems);
+  pthread_mutex_lock(&that->mtx);
+  while (that->busy_mask != (1 << that->num_elems) - 1) {
+    dbg_printf("pop() suspending (busy_mask=%x)...\n", that->busy_mask);
+    pthread_cond_wait(&that->cv_ready, &that->mtx);
     dbg_printf("pop() woken up...\n");
   }
-  memcpy(elems, this->elems, sizeof(*elems) * num_elems);
-  this->busy_mask = 0;
+  if (elems != NULL)
+    memcpy(elems, that->elems, sizeof(*elems) * num_elems);
+  that->busy_mask = 0;
   for (int i = 0; i < num_elems; i++)
-    if (this->waiting[i] > 0)
-      pthread_cond_signal(&this->cv_busy[i]);
-  pthread_mutex_unlock(&this->mtx);
+    if (that->waiting[i] > 0)
+      pthread_cond_signal(&that->cv_busy[i]);
+  pthread_mutex_unlock(&that->mtx);
 }
 
-static void multi_queue_cleanup(multi_queue_t *this) {
-  free(this->waiting);
-  free(this->cv_busy);
-  free(this->elems);
+static void multi_queue_cleanup(multi_queue_t *that) {
+  free(that->waiting);
+  free(that->cv_busy);
+  free(that->elems);
 }
 
 #ifdef __cplusplus
