@@ -282,10 +282,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 #ifdef NDEBUG
     // write the task execution time into its log file
     exec_time_f << duration << endl;
-    // check the duration of the tasks if this is in conformance w their wcet.
-    if (duration > task.wcet){
-        printf("task %s (%u): task duration %lu > wcet %lu!\n", task_name, iter, duration, task.wcet);
-    }
     if (duration > task.deadline){
         printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
         //TODO: stop or continue ?
