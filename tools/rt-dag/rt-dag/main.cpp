@@ -142,9 +142,9 @@ void set_cpu_freq(std::unique_ptr< input_wrapper > &in_data){
 
 int main(int argc, char* argv[]) {
 
-  signal(SIGKILL,exit_all);
-  signal(SIGSEGV,exit_all);
-  signal(SIGINT,exit_all); 
+  // signal(SIGKILL,exit_all);
+  // signal(SIGSEGV,exit_all);
+  // signal(SIGINT,exit_all); 
 
   // this input format does not have an input file format.
   // INPUT_TYPE != 0  means this is not the input_header mode, which does not have input files
