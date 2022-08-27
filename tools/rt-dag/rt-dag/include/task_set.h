@@ -126,6 +126,17 @@ public:
             // only the DAG sink should use this, but you never know...
             tasks[i].dag_resp_times = dag_resp_times;
         }
+        int fd = open("/proc/sys/kernel/sched_rt_runtime_us", O_WRONLY);
+        if (fd == -1) {
+          perror("open() failed!");
+          exit(1);
+        }
+        rv = write(fd, "-1\n", 3);
+        if (rv < 0) {
+          perror("write() failed!");
+          exit(1);
+        }
+        close(fd);
     }
 
     // using shared_ptr ... no need to deallocated
