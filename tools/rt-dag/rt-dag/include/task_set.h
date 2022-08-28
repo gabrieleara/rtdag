@@ -374,7 +374,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       exec_time_fname += "/";
       exec_time_fname += dag_name;
       exec_time_fname += ".log";
-      dag_exec_time_f.open(exec_time_fname, std::ios_base::app);
+      dag_exec_time_f.open(exec_time_fname, std::ios_base::trunc);
       if (! dag_exec_time_f.is_open()){
           fprintf(stderr, "ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
           exit(1);
