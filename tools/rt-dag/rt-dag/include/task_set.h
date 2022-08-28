@@ -22,12 +22,13 @@
 #include <linux/unistd.h>
 // #include <time.h>
 #include <linux/types.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <periodic_task.h>
 #include <time_aux.h>
 
-#include "circular_buffer.h"
-#include "circular_shm.h"
 #include "multi_queue.h"
 #include "sched_defs.h"
 #include <pthread.h>
@@ -41,7 +42,7 @@ using namespace std;
 // choose the appropriate communication method based on the task implementation
 #if TASK_IMPL == 0 
     // thread-based task implementation
-    using dag_deadline_type = circular_buffer <unsigned long,1>;
+    using dag_deadline_type = multi_queue_t;
 #else
     // process-based task implementation
     using cbuffer = circular_shm <shared_mem_type,BUFFER_LINES>;
@@ -67,7 +68,7 @@ typedef struct {
     vector< ptr_edge > out_buffers;
     multi_queue_t mq;           // used by all elements except the DAG source
     pthread_barrier_t *p_bar;
-    dag_deadline_type *p_dag_start_time; // used only by the DAG source and sink tasks
+    multi_queue_t *p_dag_start_time;     // used only by the DAG source and sink tasks
     unsigned long *dag_resp_times;       // used only by the DAG sink
 } task_type;
 
@@ -107,11 +108,16 @@ public:
           fprintf(stderr, "barrier_init() failed: %s!\n", strerror(rv));
           exit(1);
         }
-        // this is used only by the start and end tasks to check the end-to-end DAG deadline  
-        dag_deadline_type *p_dag_start_time = new dag_deadline_type("dag_start_time");
+        // this is used only by the start and end tasks to check the end-to-end DAG deadline
+        // for what we need here, a multi_queue with 1 elem works just fine
+        multi_queue_t *p_dag_start_time = (multi_queue_t *) malloc(sizeof(multi_queue_t));
         if (p_dag_start_time == 0) {
-          std::cerr << "Could not allocate dag_deadline_type" << std::endl;
+          std::cerr << "Could not allocate multi_queue_t" << std::endl;
           exit(1);
+        }
+        if (!multi_queue_init(p_dag_start_time, 1)) {
+            std::cerr << "Could not initialize multi_queue_t!" << std::endl;
+            exit(1);
         }
         unsigned long *dag_resp_times = new unsigned long[input->get_repetitions()];
         tasks.resize(input->get_n_tasks());
@@ -124,7 +130,10 @@ public:
             std::vector<int> in_tasks = get_input_tasks(input.get(), i);
             // create the edges/queues w unique names (unless we're the DAG source)
             if (in_tasks.size() > 0) {
-                multi_queue_init(&tasks[i].mq, in_tasks.size());
+                if (!multi_queue_init(&tasks[i].mq, in_tasks.size())) {
+                    std::cerr << "Could not initialize multi_queue_t" << std::endl;
+                    exit(1);
+                }
                 for (int j = 0; j < (int)in_tasks.size(); j++) {
                     int s = in_tasks[j];
                     ptr_edge new_edge(new edge_type);
@@ -280,7 +289,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // this is what we compute response times (and possible deadline misses) against
         // (NOT the first time the task is scheduled by the OS, that can be a much later time)
         now_long = pinfo_get_abstime_us(&pinfo);
-        task.p_dag_start_time->push(now_long);
+        multi_queue_push(task.p_dag_start_time, 0, (void *)now_long);
         LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
         LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
         } else {
@@ -332,7 +341,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
         if (task.out_buffers.size() == 0){
             unsigned long last_dag_start;
-            task.p_dag_start_time->pop(last_dag_start);
+            multi_queue_pop(task.p_dag_start_time, (void**)&last_dag_start, 1);
             duration = now_long - last_dag_start;
             LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n", task_name, iter, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
             task.dag_resp_times[iter] = duration;
