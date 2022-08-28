@@ -26,7 +26,6 @@
 #include <periodic_task.h>
 #include <time_aux.h>
 
-#include "shared_mem_type.h"
 #include "circular_buffer.h"
 #include "circular_shm.h"
 #include "multi_queue.h"
@@ -42,16 +41,12 @@ using namespace std;
 // choose the appropriate communication method based on the task implementation
 #if TASK_IMPL == 0 
     // thread-based task implementation
-    using cbuffer = circular_buffer <shared_mem_type,BUFFER_LINES>;
     using dag_deadline_type = circular_buffer <unsigned long,1>;
 #else
     // process-based task implementation
     using cbuffer = circular_shm <shared_mem_type,BUFFER_LINES>;
     using dag_deadline_type = circular_shm <unsigned long,1>;
 #endif
-
-using ptr_cbuffer = std::shared_ptr< cbuffer >;
-using vet_cbuffer = std::vector< ptr_cbuffer >;
 
 typedef struct {
     multi_queue_t *p_mq;   // the multibuffer to push to
@@ -243,10 +238,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   exec_time_f << task.deadline << endl;
 #endif // NDEBUG
 
-  // local copy of the incomming data. this copy is not required since it is shared var,
-  // but it is enforced to comply with Amalthea model 
-  shared_mem_type message;
-
   // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
   LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
   set_sched_deadline(task.wcet, task.deadline, task.deadline);
@@ -321,7 +312,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
             }
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, message.size(), message.get());
+            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
