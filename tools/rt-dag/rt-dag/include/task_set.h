@@ -205,7 +205,7 @@ private:
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned long period_us=0){
+static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned hyperperiod_iters, const unsigned long period_us=0){
   unsigned iter=0;
   char task_name[32];
   strcpy(task_name, task.name.c_str());
@@ -274,85 +274,91 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   }
 
   while(iter < repetitions){
-    // check the end-to-end DAG deadline.
-    // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
-    // this variable is set by the starting task and read by the final task.
-    // if this is the starting task, i.e. a task with no input queues, get the time the dag started.
-    if (task.in_buffers.size() == 0){
-      // on 1st iteration, this is the time pinfo_init() was called;
-      // on others, it is the exact (theoretical) wake-up time of the DAG;
-      // this is what we compute response times (and possible deadline misses) against
-      // (NOT the first time the task is scheduled by the OS, that can be a much later time)
-      now_long = pinfo_get_abstime_us(&pinfo);
-      task.p_dag_start_time->push(now_long);
-      LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
-      LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
-    } else {
-      // wait all incomming messages
-      LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
-      LOG(INFO,"task %s (%u), waiting on pop(), for %d tasks to push()\n", task_name, iter, (int)task.in_buffers.size());
-    // don't need to retrieve received buffers, they're already in in_buffer[]
-      multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
-      for (int i = 0; i < (int)task.in_buffers.size(); i++) {
-        assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
-        LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
-      }
-    }
-
-    unsigned long wcet = ((float)task.wcet)*0.95f;
-    LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
-    // the task execution time starts to count only after all incomming msgs were received
-    task_start_time = (unsigned long) micros(); 
-    // runs busy waiting to mimic some actual processing.
-    // using sleep or wait wont achieve the same result, for instance, in power consumption
-    Count_Time(wcet);
-
-    // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
-    LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
-    for(int i=0;i<(int)task.out_buffers.size();++i){
-      int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
-        if (len < task.out_buffers[i]->msg_size) {
-          memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
-          task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+    // repeat the execution of this entire dag as many times as required to reach the hyperperiod
+    // ex: assuming 2 dags are running concurrently, one w dag_period 3 and other w dag_period 8
+    // hyperperiod must be 24. thus, it means that the 1st dag must run 24/3 times while the 2nd dag must run 24/8 times
+    // such that the hyperperiod is reached
+    for (unsigned hyper_i=0; hyper_i < hyperperiod_iters; ++hyper_i){
+        // check the end-to-end DAG deadline.
+        // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
+        // this variable is set by the starting task and read by the final task.
+        // if this is the starting task, i.e. a task with no input queues, get the time the dag started.
+        if (task.in_buffers.size() == 0){
+        // on 1st iteration, this is the time pinfo_init() was called;
+        // on others, it is the exact (theoretical) wake-up time of the DAG;
+        // this is what we compute response times (and possible deadline misses) against
+        // (NOT the first time the task is scheduled by the OS, that can be a much later time)
+        now_long = pinfo_get_abstime_us(&pinfo);
+        task.p_dag_start_time->push(now_long);
+        LOG(DEBUG,"task %s (%u): dag start time %lu\n", task_name, iter, now_long);
+        LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
+        } else {
+        // wait all incomming messages
+        LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
+        LOG(INFO,"task %s (%u), waiting on pop(), for %d tasks to push()\n", task_name, iter, (int)task.in_buffers.size());
+        // don't need to retrieve received buffers, they're already in in_buffer[]
+        multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
+        for (int i = 0; i < (int)task.in_buffers.size(); i++) {
+            assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
+            LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
-        multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-        LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, message.size(), message.get());
-    }
-    LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
-
-    now_long = micros();
-    duration = now_long - task_start_time;
-    LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
-
-#ifdef NDEBUG
-    // write the task execution time into its log file
-    exec_time_f << duration << endl;
-    if (duration > task.deadline){
-        printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
-        //TODO: stop or continue ?
-    }
-#endif // NDEBUG
-
-    // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
-    if (task.out_buffers.size() == 0){
-        unsigned long last_dag_start;
-        task.p_dag_start_time->pop(last_dag_start);
-        duration = now_long - last_dag_start;
-        LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n", task_name, iter, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
-        task.dag_resp_times[iter] = duration;
-        if (duration > dag_deadline_us){
-            // we do expect a few deadline misses, despite all precautions, we'll find them in the output file
-            LOG(DEBUG, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
         }
-    }
 
-    // only the start task waits for the period
-    // OBS: not sure if this part of the code is in its correct/most precise position
-    if (task.in_buffers.size() == 0){
-        LOG(DEBUG, "waiting till pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
-        pinfo_sum_period_and_wait(&pinfo);
-        LOG(DEBUG, "woken up on new instance, pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
-    }
+        unsigned long wcet = ((float)task.wcet)*0.95f;
+        LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
+        // the task execution time starts to count only after all incomming msgs were received
+        task_start_time = (unsigned long) micros(); 
+        // runs busy waiting to mimic some actual processing.
+        // using sleep or wait wont achieve the same result, for instance, in power consumption
+        Count_Time(wcet);
+
+        // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
+        LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
+        for(int i=0;i<(int)task.out_buffers.size();++i){
+        int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
+            if (len < task.out_buffers[i]->msg_size) {
+            memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
+            task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+            }
+            multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
+            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, message.size(), message.get());
+        }
+        LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
+
+        now_long = micros();
+        duration = now_long - task_start_time;
+        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
+
+    #ifdef NDEBUG
+        // write the task execution time into its log file
+        exec_time_f << duration << endl;
+        if (duration > task.deadline){
+            printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
+            //TODO: stop or continue ?
+        }
+    #endif // NDEBUG
+
+        // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
+        if (task.out_buffers.size() == 0){
+            unsigned long last_dag_start;
+            task.p_dag_start_time->pop(last_dag_start);
+            duration = now_long - last_dag_start;
+            LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n", task_name, iter, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
+            task.dag_resp_times[iter] = duration;
+            if (duration > dag_deadline_us){
+                // we do expect a few deadline misses, despite all precautions, we'll find them in the output file
+                LOG(DEBUG, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
+            }
+        }
+
+        // only the start task waits for the period
+        // OBS: not sure if this part of the code is in its correct/most precise position
+        if (task.in_buffers.size() == 0){
+            LOG(DEBUG, "waiting till pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
+            pinfo_sum_period_and_wait(&pinfo);
+            LOG(DEBUG, "woken up on new instance, pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
+        }
+    } // end hyperperiod loop
 
     ++iter;
   }
@@ -386,12 +392,15 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;
         unsigned long thread_id;
-        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], input->get_repetitions(), input->get_deadline(), input->get_period()));
+        // this represents how many times this dag must repeat to reach the hyperperiod
+        // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
+        unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
+        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], input->get_repetitions(), input->get_deadline(), hyperperiod_iters, input->get_period()));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
-            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], input->get_repetitions(), input->get_deadline(), 0));
+            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], input->get_repetitions(), input->get_deadline(), hyperperiod_iters, 0));
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);

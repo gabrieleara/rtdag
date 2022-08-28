@@ -46,6 +46,7 @@ public:
     virtual unsigned  get_repetitions() const  = 0;
     virtual unsigned long  get_period() const  = 0;
     virtual unsigned long  get_deadline() const  = 0;
+    virtual unsigned long  get_hyperperiod() const  = 0;
     virtual const char *   get_tasks_name(unsigned t) const = 0;
     virtual unsigned long  get_tasks_wcet(unsigned t) const = 0;
     virtual unsigned long  get_tasks_rel_deadline(unsigned t) const = 0;

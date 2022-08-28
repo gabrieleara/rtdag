@@ -60,6 +60,7 @@ public:
     unsigned  get_repetitions() const { return inputs["repetitions"].as<unsigned>();}
     unsigned long get_period() const { return inputs["dag_period"].as<unsigned long>();}
     unsigned long get_deadline() const { return inputs["dag_deadline"].as<unsigned long>();}
+    unsigned long get_hyperperiod() const { return inputs["hyperperiod"].as<unsigned long>();}
     const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}        
     unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
     unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}

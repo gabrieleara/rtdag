@@ -32,6 +32,7 @@ public:
     unsigned  get_repetitions() const { return REPETITIONS;}
     unsigned long get_period() const { return DAG_PERIOD;}
     unsigned long get_deadline() const { return DAG_DEADLINE;}
+    unsigned long get_hyperperiod() const { return HYPERPERIOD;}
     const char *    get_tasks_name(unsigned t) const { return tasks_name[t];}
     unsigned long  get_tasks_wcet(unsigned t) const { return tasks_wcet[t];}
     unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}

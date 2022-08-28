@@ -12,6 +12,7 @@ const char * dagset_name = "minimal_header";
 #define REPETITIONS 50 // the number of iterations of the complete DAG
 #define DAG_PERIOD 300'000 // in us 
 #define DAG_DEADLINE DAG_PERIOD // usually is the same as dag period, but not necessarly
+#define HYPERPERIOD 300'000 // in us . relevant only when it runs w multidags scenarios, i.e., multi rt-dag processes concurrently
 const char * tasks_name[N_TASKS] = {"n0","n1","n2","n3"};
 // The actual task computation workload in 'ticks'. a tick is equivalent to a simple logic operation.
 // Note that tick is not time ! it's a kind of workload unit

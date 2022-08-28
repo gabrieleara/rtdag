@@ -91,6 +91,7 @@ max_msg_len: 1
 repetitions: 50 # the number of iterations of the complete DAG
 dag_period: 300000 # in us
 dag_deadline: 300000 # in us
+hyperperiod: 300000 # in us
 tasks_name: ["n000","n001","n002","n003"]
 # The actual task computation time is decided randomly in runtime
 tasks_wcet: [50000,50000,50000,50000] # in us. 
