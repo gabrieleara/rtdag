@@ -322,7 +322,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
             }
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
