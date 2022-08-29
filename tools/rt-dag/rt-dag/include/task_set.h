@@ -373,13 +373,23 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         exec_time_fname += "/";
         exec_time_fname += dag_name;
         exec_time_fname += ".log";
-        dag_exec_time_f.open(exec_time_fname, std::ios_base::trunc);
+        // if it's the first time the file is open, then write the deadline as the 1st line.
+        // otherwise, dont write the deadline again.
+        bool add_deadline=true;
+        std::ifstream file_exist(exec_time_fname);        
+        if(file_exist.is_open()){
+            add_deadline=false;
+        }
+        file_exist.close();
+        // now actually open to save the data
+        dag_exec_time_f.open(exec_time_fname, std::ios_base::app);
         if (! dag_exec_time_f.is_open()){
             fprintf(stderr, "ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
             exit(1);
         }
-        // TODO @Alex, fix your hyperperiod stuff here, now this is broken!
-        dag_exec_time_f << dag_deadline_us << endl;
+        if (add_deadline){
+            dag_exec_time_f << dag_deadline_us << endl;
+        }
         for (unsigned int i = 0; i < hyperperiod_iters; i++)
             dag_exec_time_f << task.dag_resp_times[i] << endl;
         dag_exec_time_f.close();
