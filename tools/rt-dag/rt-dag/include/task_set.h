@@ -119,7 +119,10 @@ public:
             std::cerr << "Could not initialize multi_queue_t!" << std::endl;
             exit(1);
         }
-        unsigned long *dag_resp_times = new unsigned long[input->get_repetitions()];
+        // this represents how many times this dag must repeat to reach the hyperperiod
+        // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
+        unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
+        unsigned long *dag_resp_times = new unsigned long[hyperperiod_iters];
         tasks.resize(input->get_n_tasks());
         // here we loop over destination tasks
         for (unsigned int i = 0; i < input->get_n_tasks(); ++i) {
@@ -209,8 +212,7 @@ private:
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned repetitions, const unsigned long dag_deadline_us, const unsigned hyperperiod_iters, const unsigned long period_us=0){
-  unsigned iter=0;
+static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   char task_name[32];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
@@ -273,12 +275,11 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       LOG(DEBUG, "woken up: pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
   }
 
-  while(iter < repetitions){
     // repeat the execution of this entire dag as many times as required to reach the hyperperiod
     // ex: assuming 2 dags are running concurrently, one w dag_period 3 and other w dag_period 8
     // hyperperiod must be 24. thus, it means that the 1st dag must run 24/3 times while the 2nd dag must run 24/8 times
     // such that the hyperperiod is reached
-    for (unsigned hyper_i=0; hyper_i < hyperperiod_iters; ++hyper_i){
+    for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
         // check the end-to-end DAG deadline.
         // create a shared variable with the start time of the dag such that the final task can check the dag deadline.
         // this variable is set by the starting task and read by the final task.
@@ -321,7 +322,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
             }
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
@@ -329,14 +330,14 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         duration = now_long - task_start_time;
         LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
 
-    #ifdef NDEBUG
-        // write the task execution time into its log file
-        exec_time_f << duration << endl;
-        if (duration > task.deadline){
-            printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
-            //TODO: stop or continue ?
-        }
-    #endif // NDEBUG
+        #ifdef NDEBUG
+            // write the task execution time into its log file
+            exec_time_f << duration << endl;
+            if (duration > task.deadline){
+                printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
+                //TODO: stop or continue ?
+            }
+        #endif // NDEBUG
 
         // if this is the final task, i.e. a task with no output queues, check the overall dag execution time
         if (task.out_buffers.size() == 0){
@@ -360,31 +361,29 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
     } // end hyperperiod loop
 
-    ++iter;
-  }
 
-#ifdef NDEBUG
-  exec_time_f.close();
-#endif // NDEBUG
+    #ifdef NDEBUG
+    exec_time_f.close();
+    #endif // NDEBUG
 
-  if (task.out_buffers.size() == 0){
-      // file to save the dag execution time, created only by the end task
-      ofstream dag_exec_time_f;
-      exec_time_fname = dag_name;  
-      exec_time_fname += "/";
-      exec_time_fname += dag_name;
-      exec_time_fname += ".log";
-      dag_exec_time_f.open(exec_time_fname, std::ios_base::trunc);
-      if (! dag_exec_time_f.is_open()){
-          fprintf(stderr, "ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
-          exit(1);
-      }
-      // TODO @Alex, fix your hyperperiod stuff here, now this is broken!
-      dag_exec_time_f << dag_deadline_us << endl;
-      for (unsigned int i = 0; i < repetitions; i++)
-          dag_exec_time_f << task.dag_resp_times[i] << endl;
-      dag_exec_time_f.close();
-  }
+    if (task.out_buffers.size() == 0){
+        // file to save the dag execution time, created only by the end task
+        ofstream dag_exec_time_f;
+        exec_time_fname = dag_name;  
+        exec_time_fname += "/";
+        exec_time_fname += dag_name;
+        exec_time_fname += ".log";
+        dag_exec_time_f.open(exec_time_fname, std::ios_base::trunc);
+        if (! dag_exec_time_f.is_open()){
+            fprintf(stderr, "ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+            exit(1);
+        }
+        // TODO @Alex, fix your hyperperiod stuff here, now this is broken!
+        dag_exec_time_f << dag_deadline_us << endl;
+        for (unsigned int i = 0; i < hyperperiod_iters; i++)
+            dag_exec_time_f << task.dag_resp_times[i] << endl;
+        dag_exec_time_f.close();
+    }
 }
 
     void thread_launcher(unsigned seed){
@@ -393,12 +392,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // this represents how many times this dag must repeat to reach the hyperperiod
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
         unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
-        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], input->get_repetitions(), input->get_deadline(), hyperperiod_iters, input->get_period()));
+        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], hyperperiod_iters, input->get_deadline(), input->get_period()));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
-            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], input->get_repetitions(), input->get_deadline(), hyperperiod_iters, 0));
+            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
