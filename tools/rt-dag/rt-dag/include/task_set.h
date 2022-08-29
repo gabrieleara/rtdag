@@ -220,7 +220,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   (void) seed;
 
   // sched_deadline does not support tasks shorter than 1024 ns
-  if (task.wcet < 1024){
+  if (task.wcet <= 1){
     fprintf(stderr,"ERROR: sched_deadline does not support tasks shorter than 1024 ns.\n");
     exit(1);
   }
