@@ -508,6 +508,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         assert(cpu < std::thread::hardware_concurrency());
         cpu_set_t cpuset;
         int ret;
+        // this variable is unsued when compiling in Release mode
+        (void) ret;
         CPU_ZERO(&cpuset);
         CPU_SET(cpu, &cpuset);
         ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
@@ -517,6 +519,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     static void pin_process(const unsigned cpu){
         cpu_set_t  mask;
         int ret;
+        // this variable is unsued when compiling in Release mode
+        (void) ret;        
         CPU_ZERO(&mask);
         CPU_SET(cpu, &mask);
         ret = sched_setaffinity(getpid(), sizeof(mask), &mask);
