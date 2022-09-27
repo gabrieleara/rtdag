@@ -3,6 +3,9 @@ project(rt_dag LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+add_definitions(-DUSE_COUNT_TICK)
+add_definitions(-DUSE_COMPILER_BARRIER)
+
 ##############
 # basic definitions
 ##############
@@ -61,15 +64,6 @@ ENDIF()
 add_definitions(-DINPUT_TYPE=${INPUT_TYPE_INT})
 
 ##############
-# control cpu freq
-##############
-option(SET_FREQ "Set the CPU frequencies" OFF)
-if(SET_FREQ)
-    add_definitions(-DSET_FREQ)
-endif(SET_FREQ)
-
-
-##############
 # check dependencies
 ##############
 
@@ -105,11 +99,11 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/
 )
 
-set( LIB_SOURCES 
+set( LIB_SOURCES
 ${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c
 ${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c
 )
-set( LIB_HEADERS 
+set( LIB_HEADERS
 ${CMAKE_SOURCE_DIR}/../../../common/include/periodic_task.h
 ${CMAKE_SOURCE_DIR}/../../../common/include/time_aux.h
 )

@@ -2,7 +2,7 @@
 #define INPUT_HEADER_H_
 
 /*
-This is a implementation of the input_wrapper class that reads from dag.h. 
+This is a implementation of the input_wrapper class that reads from dag.h.
 
 This was the 1st data input format developed for rt-dag. It has some advantages
 like the possibility to optimize code due to use of consts and defines.
@@ -37,7 +37,6 @@ public:
     unsigned long  get_tasks_wcet(unsigned t) const { return tasks_wcet[t];}
     unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
     unsigned  get_tasks_affinity(unsigned t) const { return task_affinity[t];}
-    unsigned  get_cpus_freq(unsigned cpu) const { return cpus_freq[cpu];}
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return adjacency_matrix[t1][t2];}
 };
 

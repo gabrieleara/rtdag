@@ -22,16 +22,11 @@ public:
         cout << "repetitions: " << get_repetitions() << endl;
         cout << "period: " << get_period() << endl;
         cout << "deadline: " << get_deadline() << endl;
-        cout << "cpus_freq: ";
-        const int ncpus = get_n_cpus();
-        for (int i=0;i<ncpus;i++){
-            cout  << get_cpus_freq(i) << ", ";
-        }
         cout << endl;
         const int ntasks = get_n_tasks();
         cout << "tasks: \n";
         for (int i=0;i<ntasks;i++){
-            cout << " - " << get_tasks_name(i) << ", " << get_tasks_wcet(i) << ", " << get_tasks_rel_deadline(i) 
+            cout << " - " << get_tasks_name(i) << ", " << get_tasks_wcet(i) << ", " << get_tasks_rel_deadline(i)
                 << ", " << get_tasks_affinity(i) << endl;
         }
     }
@@ -51,7 +46,6 @@ public:
     virtual unsigned long  get_tasks_wcet(unsigned t) const = 0;
     virtual unsigned long  get_tasks_rel_deadline(unsigned t) const = 0;
     virtual unsigned  get_tasks_affinity(unsigned t) const = 0;
-    virtual unsigned  get_cpus_freq(unsigned cpu) const = 0;
     virtual unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const = 0;
 };
 

@@ -2,7 +2,7 @@
 #define INPUT_YAML_H_
 
 /*
-This is a implementation of the input_wrapper class that reads the dag configuration from a YAML file. 
+This is a implementation of the input_wrapper class that reads the dag configuration from a YAML file.
 
 despite input_header, this approach does not required to recompile the rt-dag for every new scenario.
 When dealing with a more complex setup where it's required to run hundreds of scenarios,
@@ -61,11 +61,10 @@ public:
     unsigned long get_period() const { return inputs["dag_period"].as<unsigned long>();}
     unsigned long get_deadline() const { return inputs["dag_deadline"].as<unsigned long>();}
     unsigned long get_hyperperiod() const { return inputs["hyperperiod"].as<unsigned long>();}
-    const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}        
+    const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}
     unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
     unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
     unsigned  get_tasks_affinity(unsigned t) const { return inputs["tasks_affinity"][t].as<unsigned>();}
-    unsigned  get_cpus_freq(unsigned cpu) const { return inputs["cpus_freq"][cpu].as<unsigned>();};
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
 };
 
