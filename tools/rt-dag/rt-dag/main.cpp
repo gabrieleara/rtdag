@@ -91,11 +91,151 @@ void exit_all(int sigid){
     exit(0);
 }
 
+int get_ticks_per_us(bool required);
+
+int run_dag(string in_fname) {
+  // uncomment this to get a random seed
+  //unsigned seed = time(0);
+  // or set manually a constant seed to repeat the same sequence
+  unsigned seed = 123456;
+  cout << "SEED: " << seed << endl;
+
+  // read the dag configuration from the selected type of input
+  std::unique_ptr<input_wrapper> inputs = std::make_unique<input_type>(in_fname.c_str());
+  inputs->dump();
+  // build the TaskSet class of data from dag.h
+  TaskSet task_set(inputs);
+  task_set.print();
+
+  // Check whether the environment contains the TICKS_PER_US variable
+  int ret = get_ticks_per_us(true);
+  if (ret) {
+    return ret;
+  }
+
+  // create the directory where execution time are saved
+  struct stat st = {0};
+  if (stat(task_set.get_dagset_name(), &st) == -1) {
+    // permisions required in order to allow using rsync since rt-dag is run as root in the target computer
+    int rv = mkdir(task_set.get_dagset_name(), 0777);
+    if (rv != 0) {
+        perror("ERROR creating directory");
+        exit(1);
+    }
+  }
+
+  // pass pid_list such that tasks can be killed with CTRL+C
+  task_set.launch_tasks(&pid_list,seed);
+
+  LOG(INFO,"[main] all tasks were finished ...\n");
+
+  return 0;
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║                          Calibration and Testing                          ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+#ifdef USE_COMPILER_BARRIER
+#define COMPILER_BARRIER() asm volatile("" ::: "memory")
+#else
+#define COMPILER_BARRIER()
+#endif
+
+int get_ticks_per_us(bool required) {
+    if (ticks_per_us > 0) {
+        return EXIT_SUCCESS;
+    }
+
+    char* TICKS_PER_US = getenv("TICKS_PER_US");
+
+    if (TICKS_PER_US == nullptr) {
+        cerr << (required ? "ERROR" : "WARN")
+            << ": TICKS_PER_US undefined!" << endl;
+        return EXIT_FAILURE;
+    } else {
+        auto mstring = std::string(TICKS_PER_US);
+        auto mstream = std::istringstream(mstring);
+
+        mstream >> ticks_per_us;
+        if (!mstream) {
+            cerr << "Error! could not parse environment variable" << endl;
+        }
+    }
+
+    cout << "Using the following value for time accounting: " << ticks_per_us << endl;
+
+    return EXIT_SUCCESS;
+
+}
+
+int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
+    int res = get_ticks_per_us(true);
+    if (res)
+        return res;
+
+    COMPILER_BARRIER();
+
+    auto time_before = micros();
+
+    COMPILER_BARRIER();
+
+    uint64_t retv = do_work_for_us_using_ticks(duration_us);
+    (void) (retv);
+
+    COMPILER_BARRIER();
+
+    auto time_after = micros();
+
+    COMPILER_BARRIER();
+
+    time_difference = time_after - time_before;
+    cout << "Test duration: " << time_difference << " micros" << endl;
+
+    return 0;
+}
+
+int test_calibration(uint64_t duration_us) {
+    uint64_t time_difference_unused;
+    return test_calibration(duration_us, time_difference_unused);
+}
+
+int calibrate(uint64_t duration_us) {
+    int ret;
+    uint64_t time_difference = 1;
+
+    ret = get_ticks_per_us(false);
+    if (ret) {
+        // Set a value that is not so small in ticks_per_us
+        ticks_per_us = 250;
+    }
+
+    cout << "About to calibrate for (roughly) "<< duration_us << " micros ..." << endl;
+
+    // Will never return an error
+    test_calibration(duration_us, time_difference);
+    ticks_per_us = floor(double(duration_us * ticks_per_us) / double(time_difference));
+
+    cout << "Calibration successful, use: 'export TICKS_PER_US=" << ticks_per_us << "'" << endl;
+
+    return EXIT_SUCCESS;
+}
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║                          Command Line Arguments                           ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
 void usage(char *program_name){
-    auto usage_format = R"STRING(Usage: %s [ -h | --help | -p | --profile | -t USEC | --test-profile USEC %s]
+    auto usage_format = R"STRING(Usage: %s [ OPTION %s]
 Developed by ReTiS Laboratory, Scuola Sant'Anna, Pisa (2022).
 
-Input mode: %s
+Where OPTION can be (only) one of the following:
+    -h, --help                  Display this helpful message
+    -c USEC, --calibrate USEC   Run a calibration diagnostic for count_ticks
+    -t USEC, --test USEC        Test calibration accuracy for count_ticks
+
+If no OPTION is supplied, a DAG is run. The input mode for specifying the DAG
+information is: %s.
 
 )STRING";
     printf(usage_format, program_name,
@@ -108,12 +248,18 @@ Input mode: %s
     );
 }
 
+enum class command_action {
+    HELP,
+    RUN_DAG,
+    CALIBRATE,
+    TEST,
+};
+
 struct opts {
+    command_action action = command_action::RUN_DAG;
     string in_fname = "";
-    bool profile = false;
-    uint64_t test_duration = 0;
-    bool help = false;
-    int exit_with_error = EXIT_SUCCESS;
+    uint64_t duration_us = 0;
+    int exit_code = EXIT_SUCCESS;
 };
 
 struct test_duration_result {
@@ -137,12 +283,12 @@ opts parse_args(int argc, char *argv[]) {
         int option_index = 0;
         static struct option long_options[] = {
             {"help", no_argument, 0, 'h' },
-            {"profile", no_argument, 0, 'p' },
-            {"test-profile", required_argument, 0, 't' },
+            {"calibrate", required_argument, 0, 'c' },
+            {"test", required_argument, 0, 't' },
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "hpt:", long_options, &option_index);
+        char c = getopt_long(argc, argv, "hc:t:", long_options, &option_index);
         if (c == -1) {
             break;
         }
@@ -153,34 +299,33 @@ opts parse_args(int argc, char *argv[]) {
             case 0:
                 // No long option has no corresponding short option
                 fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n", c);
-                program_options.exit_with_error = EXIT_FAILURE;
+                program_options.exit_code = EXIT_FAILURE;
                 assert(false);
                 break;
             case 'h':
-                program_options.help = true;
+                program_options.action = command_action::HELP;
                 goto end;
-            case 'p':
-                program_options.profile = true;
-                goto end;
+            case 'c':
             case 't':
                 duration_res = parse_test_duration(optarg);
                 if (!duration_res.valid) {
                     fprintf(stderr, "Invalid argument to option: %s\n", optarg);
-                    program_options.help = true;
-                    program_options.exit_with_error = EXIT_FAILURE;
+                    program_options.action = command_action::HELP;
+                    program_options.exit_code = EXIT_FAILURE;
                     goto end;
                 }
 
-                program_options.test_duration = duration_res.duration;
+                program_options.duration_us = duration_res.duration;
+                program_options.action = c == 'c' ? command_action::CALIBRATE : command_action::TEST;
                 goto end;
             case '?':
                 // fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n", c);
-                program_options.help = true;
-                program_options.exit_with_error = EXIT_FAILURE;
+                program_options.action = command_action::HELP;
+                program_options.exit_code = EXIT_FAILURE;
                 goto end;
             default:
                 fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n", c);
-                program_options.exit_with_error = EXIT_FAILURE;
+                program_options.exit_code = EXIT_FAILURE;
                 goto end;
         }
     }
@@ -195,16 +340,16 @@ opts parse_args(int argc, char *argv[]) {
 
     if (optind < argc) {
         fprintf(stderr, "Error: too many arguments supplied!\n");
-        program_options.help = true;
-        program_options.exit_with_error = EXIT_FAILURE;
+        program_options.action = command_action::HELP;
+        program_options.exit_code = EXIT_FAILURE;
         goto end;
     }
 
 #if INPUT_TYPE != 0
     if (program_options.in_fname.length() < 1) {
         fprintf(stderr, "Error: too few arguments supplied!\n");
-        program_options.help = true;
-        program_options.exit_with_error = EXIT_FAILURE;
+        program_options.action = command_action::HELP;
+        program_options.exit_code = EXIT_FAILURE;
         goto end;
     }
 #endif
@@ -213,171 +358,37 @@ end:
     return program_options;
 }
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#include <iostream>
-
-#include "time_aux.h"
-
-constexpr uint64_t ticks_profile = 1'000'000'000;
-#ifdef USE_COMPILER_BARRIER
-#define COMPILER_BARRIER() asm volatile("" ::: "memory")
-#else
-#define COMPILER_BARRIER()
-#endif
-
-extern uint64_t ticks_per_us;
-
-int get_ticks_per_us();
-
-struct test_profile_ret {
-    int success = 0;
-    uint64_t time_difference;
-};
-
-test_profile_ret do_test_profile(uint64_t duration_us) {
-    int res = get_ticks_per_us();
-    if (res) {
-        return {
-            res,
-        };
-    }
-
-    COMPILER_BARRIER();
-
-    auto time_before = micros();
-
-    COMPILER_BARRIER();
-
-    uint64_t retv = do_work_for_us_using_ticks(duration_us);
-    (void) (retv);
-
-    COMPILER_BARRIER();
-
-    auto time_after = micros();
-
-    COMPILER_BARRIER();
-
-    cout << "Time difference (micros): " << (time_after - time_before) << endl;
-
-    return {
-        0,
-        (time_after - time_before),
-    };
-}
-
-int do_profile() {
-    // Set a value that is not so small in ticks_per_us
-    ticks_per_us = 300;
-
-    uint64_t duration_us = ticks_profile / ticks_per_us;
-
-    cout << "About to profile..." << endl;
-
-    auto res = do_test_profile(duration_us);
-    ticks_per_us = floor(double(duration_us * ticks_per_us) / double(res.time_difference));
-
-    auto res_string = R"(Profile successful!
-Please run this command before running this program at the same frequency next time:
-export TICKS_PER_US='%lu'
-)";
-    printf(res_string, ticks_per_us);
-
-    return EXIT_SUCCESS;
-}
-
-int get_ticks_per_us() {
-    if (ticks_per_us > 0)
-        return EXIT_SUCCESS;
-
-    char* TICKS_PER_US = getenv("TICKS_PER_US");
-
-    if (TICKS_PER_US == nullptr) {
-        cout << "WARN: TICKS_PER_US undefined!" << endl;
-        int res = do_profile();
-        if (res) {
-            return res;
-        }
-    } else {
-        auto mstring = std::string(TICKS_PER_US);
-        auto mstream = std::istringstream(mstring);
-
-        mstream >> ticks_per_us;
-        if (!mstream) {
-            cerr << "Error! could not parse environment variable" << endl;
-        }
-    }
-
-    cout << "Using the following value for time accounting: " << ticks_per_us << endl;
-
-    return EXIT_SUCCESS;
-
-}
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║                                   Main                                    ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
 
 int main(int argc, char* argv[]) {
-
-  // signal(SIGKILL,exit_all);
-  // signal(SIGSEGV,exit_all);
-  // signal(SIGINT,exit_all);
+    // signal(SIGKILL,exit_all);
+    // signal(SIGSEGV,exit_all);
+    // signal(SIGINT,exit_all);
 
     auto program_options = parse_args(argc, argv);
 
-    if (program_options.help) {
+    switch (program_options.action) {
+    case command_action::HELP:
         usage(argv[0]);
-        return program_options.exit_with_error;
+        return program_options.exit_code;
+
+    case command_action::CALIBRATE:
+        return calibrate(program_options.duration_us);
+
+    case command_action::TEST:
+        return test_calibration(program_options.duration_us);
+
+    case command_action::RUN_DAG:
+        if (program_options.exit_code != EXIT_SUCCESS) {
+            return program_options.exit_code;
+        }
+
+        return run_dag(program_options.in_fname);
     }
 
-    if (program_options.exit_with_error != EXIT_SUCCESS) {
-        return program_options.exit_with_error;
-    }
-
-    if (program_options.profile) {
-        return do_profile();
-    }
-
-    if (program_options.test_duration) {
-        return do_test_profile(program_options.test_duration).success;
-    }
-
-  string in_fname = "";
-#if INPUT_TYPE != 0
-    in_fname = program_options.in_fname;
-#endif
-
-  // uncomment this to get a random seed
-  //unsigned seed = time(0);
-  // or set manually a constant seed to repeat the same sequence
-  unsigned seed = 123456;
-  cout << "SEED: " << seed << endl;
-
-  // read the dag configuration from the selected type of input
-  std::unique_ptr<input_wrapper> inputs = std::make_unique<input_type>(in_fname.c_str());
-  inputs->dump();
-  // build the TaskSet class of data from dag.h
-  TaskSet task_set(inputs);
-  task_set.print();
-
-  // Check whether the environment contains the TICKS_PER_US variable
-  get_ticks_per_us();
-
-  // create the directory where execution time are saved
-  struct stat st = {0};
-  if (stat(task_set.get_dagset_name(), &st) == -1) {
-    // permisions required in order to allow using rsync since rt-dag is run as root in the target computer
-    int rv = mkdir(task_set.get_dagset_name(), 0777);
-    if (rv != 0) {
-        perror("ERROR creating directory");
-        exit(1);
-    }
-  }
-
-  // pass pid_list such that tasks can be killed with CTRL+C
-  task_set.launch_tasks(&pid_list,seed);
-
-  LOG(INFO,"[main] all tasks were finished ...\n");
-
-  return 0;
+    assert(false);
+    cerr << "There's an error in the implementation!" << endl;
+    return EXIT_FAILURE;
 }
