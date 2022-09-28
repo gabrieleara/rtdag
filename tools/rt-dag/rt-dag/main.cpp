@@ -149,9 +149,11 @@ int get_ticks_per_us(bool required) {
 
     char* TICKS_PER_US = getenv("TICKS_PER_US");
 
+    auto &print_stream = (required) ? cerr : cout;
+    auto kind = (required) ? "ERROR" : "WARN";
+
     if (TICKS_PER_US == nullptr) {
-        cerr << (required ? "ERROR" : "WARN")
-            << ": TICKS_PER_US undefined!" << endl;
+        print_stream << kind << ": TICKS_PER_US undefined!" << endl;
         return EXIT_FAILURE;
     } else {
         auto mstring = std::string(TICKS_PER_US);
@@ -288,7 +290,7 @@ opts parse_args(int argc, char *argv[]) {
             {0, 0, 0, 0}
         };
 
-        char c = getopt_long(argc, argv, "hc:t:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hc:t:", long_options, &option_index);
         if (c == -1) {
             break;
         }
