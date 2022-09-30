@@ -61,6 +61,7 @@ using ptr_edge = std::shared_ptr< edge_type >;
 
 typedef struct {
     string name;
+    string type; // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are implemented
     unsigned affinity;          // which core the task is mapped
     unsigned long wcet;         // in us 
     unsigned long deadline;     // in us
@@ -127,6 +128,7 @@ public:
         // here we loop over destination tasks
         for (unsigned int i = 0; i < input->get_n_tasks(); ++i) {
             tasks[i].name = input->get_tasks_name(i);
+            tasks[i].type = input->get_tasks_type(i);
             tasks[i].wcet = input->get_tasks_wcet(i);
             tasks[i].deadline = input->get_tasks_rel_deadline(i);
             tasks[i].affinity = input->get_tasks_affinity(i);
@@ -183,7 +185,7 @@ public:
     void print() const{
         unsigned i,c;
         for(i=0;i<input->get_n_tasks();++i){
-            cout << tasks[i].name << ", wcet: " << tasks[i].wcet  << ", deadline: " << tasks[i].deadline << ", affinity: " << tasks[i].affinity << endl;
+            cout << tasks[i].name << ", type: " << tasks[i].type  << ", wcet: " << tasks[i].wcet  << ", deadline: " << tasks[i].deadline << ", affinity: " << tasks[i].affinity << endl;
             cout << " ins: ";
             for(c=0;c<tasks[i].in_buffers.size();++c)
                 cout << tasks[i].in_buffers[c]->name << "(" << tasks[i].in_buffers[c]->msg_size << "), ";

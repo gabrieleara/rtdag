@@ -103,8 +103,8 @@ int run_dag(string in_fname) {
   // read the dag configuration from the selected type of input
   std::unique_ptr<input_wrapper> inputs = std::make_unique<input_type>(in_fname.c_str());
   inputs->dump();
-  // build the TaskSet class of data from dag.h
   TaskSet task_set(inputs);
+  cout << "\nPrinting the input DAG: \n"; 
   task_set.print();
 
   // Check whether the environment contains the TICKS_PER_US variable

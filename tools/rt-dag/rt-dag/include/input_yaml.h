@@ -20,6 +20,7 @@ class input_yaml: public input_wrapper{
 private:
     string dag_name;
     string tasks_name[32];
+    string tasks_type[32];
     YAML::Node inputs;
 public:
     input_yaml(const char* fname_): input_wrapper(fname_) {
@@ -47,6 +48,7 @@ public:
         }
         for (int i=0;i<ntasks;i++){
             tasks_name[i] = inputs["tasks_name"][i].as<string>();
+            tasks_type[i] = inputs["tasks_type"][i].as<string>();
         }
     }
 
@@ -62,6 +64,7 @@ public:
     unsigned long get_deadline() const { return inputs["dag_deadline"].as<unsigned long>();}
     unsigned long get_hyperperiod() const { return inputs["hyperperiod"].as<unsigned long>();}
     const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}
+    const char *  get_tasks_type(unsigned t) const { return tasks_type[t].c_str();}
     unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
     unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
     unsigned  get_tasks_affinity(unsigned t) const { return inputs["tasks_affinity"][t].as<unsigned>();}

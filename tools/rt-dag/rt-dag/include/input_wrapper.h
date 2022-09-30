@@ -26,7 +26,7 @@ public:
         const int ntasks = get_n_tasks();
         cout << "tasks: \n";
         for (int i=0;i<ntasks;i++){
-            cout << " - " << get_tasks_name(i) << ", " << get_tasks_wcet(i) << ", " << get_tasks_rel_deadline(i)
+            cout << " - " << get_tasks_name(i) << ", " << get_tasks_type(i) << ", "<< get_tasks_wcet(i) << ", " << get_tasks_rel_deadline(i)
                 << ", " << get_tasks_affinity(i) << endl;
         }
     }
@@ -43,6 +43,7 @@ public:
     virtual unsigned long  get_deadline() const  = 0;
     virtual unsigned long  get_hyperperiod() const  = 0;
     virtual const char *   get_tasks_name(unsigned t) const = 0;
+    virtual const char *   get_tasks_type(unsigned t) const = 0;
     virtual unsigned long  get_tasks_wcet(unsigned t) const = 0;
     virtual unsigned long  get_tasks_rel_deadline(unsigned t) const = 0;
     virtual unsigned  get_tasks_affinity(unsigned t) const = 0;
