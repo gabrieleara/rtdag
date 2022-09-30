@@ -90,6 +90,26 @@ find_package(YAML-CPP REQUIRED
 #ENDIF(ENABLE_DAG_DEADLINE_CHECK)
 
 ##############
+# when running in a Xilinx Ultrascale board, check whether FRED lig is installed
+##############
+# change here is libfred is not in the default lib path
+set(FRED_PATH "/usr")
+find_library(LIBFRED
+    NAMES fred libfred fred-lib fredlib
+    HINTS 
+        ${FRED_PATH}/lib
+)
+
+if(LIBFRED)
+  message(STATUS "fred_lib found")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -O2 -Wall -Werror -fpic")
+  # in case FRED is not installed in the default location /usr/lib
+  include_directories(${FRED_PATH}/include/)
+  link_directories(${FRED_PATH}/lib/)
+  target_link_libraries(${PROJECT_NAME} fred)
+endif()
+
+##############
 # build internal depedencies as a library
 ##############
 
@@ -119,3 +139,7 @@ set_source_files_properties(${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c P
 
 add_executable( ${CMAKE_PROJECT_NAME} main.cpp )
 target_link_libraries( ${CMAKE_PROJECT_NAME} YourLib m rt pthread yaml-cpp)
+
+if(LIBFRED)
+  target_link_libraries(${PROJECT_NAME} fred)
+endif()
