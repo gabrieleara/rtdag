@@ -49,9 +49,8 @@ public:
         for (int i=0;i<ntasks;i++){
             tasks_name[i] = inputs["tasks_name"][i].as<string>();
             // by default, all tasks as 'cpu' type, to keep compatibility w older rt-dag input files
-            if (!inputs["tasks_type"])
-                tasks_type[i] = "cpu";
-            else
+            tasks_type[i] = "cpu";
+            if (inputs["tasks_type"])
                 tasks_type[i] = inputs["tasks_type"][i].as<string>();
         }
     }

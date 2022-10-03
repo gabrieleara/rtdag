@@ -495,6 +495,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
+            printf("invalid task type '%s' - '%s'\n", tasks[i].name.c_str(), tasks[i].type.c_str());
+            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            /*
             if (tasks[i].type == "cpu"){
                 threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
             }if (tasks[i].type == "fred"){
@@ -503,6 +506,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
                 fprintf(stderr, "ERROR: invalid task type '%s' \n", tasks[i].type.c_str());
                 exit(1);
             }
+            */
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
