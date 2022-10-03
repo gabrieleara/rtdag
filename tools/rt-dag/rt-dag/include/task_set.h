@@ -220,24 +220,14 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 
 	struct fred_data *fred;
 	struct fred_hw_task *hw_ip;
+	int retval;
+    char task_name[32];
+    strcpy(task_name, task.name.c_str());
+
     const unsigned total_buffers = task.in_buffers.size()+task.out_buffers.size();
     vector <data_t*> fred_bufs;
     fred_bufs.resize(total_buffers);
-    //std::unique_ptr<data_t[]> fred_bufs(new data_t*[total_buffers]);
-    //data_t ** fred_bufs
-	int retval;
-/*
-    const unsigned total_buffers = task.in_buffers.size()+task.out_buffers.size();
-    std::unique_ptr<unique_ptr<data_t[]>> fred_bufs(new data_t[total_buffers]);
-    int j=0;
-    for (int i=0;i<task.in_buffers.size();++i,++j){
-        fred_bufs[j] = std::make_unique< data_t[] >(task.in_buffers[i].msg_size);
-    }
-    for (int i=0;i<task.out_buffers.size();++i,++j){
-        fred_bufs[j] = std::make_unique< data_t[] >(task.out_buffers[i].msg_size);
-    }
-    (data_t *) new task.in_buffers.size()
-*/
+
 	retval = fred_init(&fred);
 	if (retval) {
         fprintf(stderr,"ERROR: fred_init failed\n");
@@ -258,6 +248,45 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
             fprintf(stderr,"ERROR: fred_map_buff failed\n");
             exit(1);
         }    
+    }
+
+    unsigned long task_start_time;
+    for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
+        // wait all incomming messages
+        LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
+        LOG(INFO,"task %s (%u), waiting on pop(), for %d tasks to push()\n", task_name, iter, (int)task.in_buffers.size());
+
+        multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
+        for (int i = 0; i < (int)task.in_buffers.size(); i++) {
+            assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
+            LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+        }
+
+        LOG(INFO,"task %s (%u): running FRED \n", task_name, iter);
+        // the task execution time starts to count only after all incomming msgs were received
+        task_start_time = (unsigned long) micros(); 
+        (void) task_start_time;
+
+        // fred run -- fpga offloading
+        retval = fred_accel(fred, hw_ip);
+        if (retval) {
+            fprintf(stderr,"ERROR: fred_accel failed\n");
+            exit(1);            
+        }
+
+        // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
+        LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
+        for(int i=0;i<(int)task.out_buffers.size();++i){
+            int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
+            if (len < task.out_buffers[i]->msg_size) {
+            memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
+            task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+            }
+            multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
+            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
+        }
+        LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
+        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
     }
 
 	//cleanup and finish
@@ -460,11 +489,20 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
         unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
         threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], hyperperiod_iters, input->get_deadline(), input->get_period()));
+        // the 1st FRED cannot be accelerated
+        assert (tasks[0].type != "fred");
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
-            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            if (tasks[i].type == "cpu"){
+                threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            }if (tasks[i].type == "fred"){
+                threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            }else{
+                fprintf(stderr, "ERROR: invalid task type '%s' \n", tasks[i].type.c_str());
+                exit(1);
+            }
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
