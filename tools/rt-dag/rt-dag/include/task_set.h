@@ -35,6 +35,10 @@
 
 #include "input_wrapper.h"
 
+#include "fred_lib.h"
+typedef uint64_t data_t;
+
+
 using namespace std;
 
 #define BUFFER_LINES 1
@@ -210,6 +214,57 @@ public:
 private:
     // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
     vector<int> *pid_list;
+
+
+static void fred_task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
+
+	struct fred_data *fred;
+	struct fred_hw_task *hw_ip;
+    const unsigned total_buffers = task.in_buffers.size()+task.out_buffers.size();
+    vector <data_t*> fred_bufs;
+    fred_bufs.resize(total_buffers);
+    //std::unique_ptr<data_t[]> fred_bufs(new data_t*[total_buffers]);
+    //data_t ** fred_bufs
+	int retval;
+/*
+    const unsigned total_buffers = task.in_buffers.size()+task.out_buffers.size();
+    std::unique_ptr<unique_ptr<data_t[]>> fred_bufs(new data_t[total_buffers]);
+    int j=0;
+    for (int i=0;i<task.in_buffers.size();++i,++j){
+        fred_bufs[j] = std::make_unique< data_t[] >(task.in_buffers[i].msg_size);
+    }
+    for (int i=0;i<task.out_buffers.size();++i,++j){
+        fred_bufs[j] = std::make_unique< data_t[] >(task.out_buffers[i].msg_size);
+    }
+    (data_t *) new task.in_buffers.size()
+*/
+	retval = fred_init(&fred);
+	if (retval) {
+        fprintf(stderr,"ERROR: fred_init failed\n");
+        exit(1);        
+	}
+	// TODO fred_id is fixed
+    // fred setup
+    retval = fred_bind(fred, &hw_ip, 100);
+    if (retval) {
+        fprintf(stderr,"ERROR: fred_bind failed\n");
+        exit(1);        
+    }
+
+    for (unsigned i=0;i<total_buffers;++i){
+        // get the pointers to the memory addresses created by fred-server
+        fred_bufs[i] = (data_t *)fred_map_buff(fred, hw_ip, 0);
+        if (!fred_bufs[i]) {
+            fprintf(stderr,"ERROR: fred_map_buff failed\n");
+            exit(1);
+        }    
+    }
+
+	//cleanup and finish
+	fred_free(fred);
+	printf("Fred finished\n");
+
+}
 
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
