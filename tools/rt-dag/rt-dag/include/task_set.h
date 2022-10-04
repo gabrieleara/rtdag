@@ -260,6 +260,14 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     // LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
     // set_sched_deadline(task.wcet, task.deadline, task.deadline);
 
+    #if TASK_IMPL == 0 
+        // wait for all threads in the DAG to have been started up to this point
+        LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void*)task.p_bar, task.name.c_str());
+        int rv = pthread_barrier_wait(task.p_bar);
+        (void) rv;
+        LOG(DEBUG, "barrier_wait() returned: %d\n", rv);
+    #endif
+
     unsigned long task_start_time;
     for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
         // wait all incomming messages
@@ -284,6 +292,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
             fprintf(stderr,"ERROR: fred_accel failed\n");
             exit(1);            
         }
+        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
 
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
@@ -298,7 +307,6 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
             LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%.50s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
-        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
     }
 	//cleanup and finish
 	fred_free(fred);
@@ -509,7 +517,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
         // the 1st and the last tasks must be running on the CPU, because of the end-to-end execution time logging
         if (tasks[0].type != "cpu" || tasks[input->get_n_tasks()-1].type != "cpu"){
-            fprintf(stderr, "ERROR: both the 1st and the last tasks must be running on the CPU \n");
+            fprintf(stderr, "ERROR: both the 1st and the last tasks must be running on a CPU \n");
             exit(1);
         }
         threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], hyperperiod_iters, input->get_deadline(), input->get_period()));
