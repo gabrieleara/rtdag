@@ -35,9 +35,10 @@
 
 #include "input_wrapper.h"
 
+#ifdef USE_FRED
 #include "fred_lib.h"
 typedef uint64_t data_t;
-
+#endif
 
 using namespace std;
 
@@ -215,8 +216,8 @@ private:
     // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
     vector<int> *pid_list;
 
-
 static void fred_task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
+#ifdef USE_FRED
 
 	struct fred_data *fred;
 	struct fred_hw_task *hw_ip;
@@ -227,6 +228,10 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     const unsigned total_buffers = task.in_buffers.size()+task.out_buffers.size();
     vector <data_t*> fred_bufs;
     fred_bufs.resize(total_buffers);
+
+    // set task affinity
+    // LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
+    // pin_to_core(task.affinity);
 
 	retval = fred_init(&fred);
 	if (retval) {
@@ -243,12 +248,26 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 
     for (unsigned i=0;i<total_buffers;++i){
         // get the pointers to the memory addresses created by fred-server
-        fred_bufs[i] = (data_t *)fred_map_buff(fred, hw_ip, 0);
+        //cout << "buffer " << i << endl;
+        fred_bufs[i] = (data_t *)fred_map_buff(fred, hw_ip, i);
         if (!fred_bufs[i]) {
             fprintf(stderr,"ERROR: fred_map_buff failed\n");
             exit(1);
         }    
     }
+    LOG(INFO,"task %s: running FRED \n", task_name);
+
+    // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
+    // LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
+    // set_sched_deadline(task.wcet, task.deadline, task.deadline);
+
+    #if TASK_IMPL == 0 
+        // wait for all threads in the DAG to have been started up to this point
+        LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void*)task.p_bar, task.name.c_str());
+        int rv = pthread_barrier_wait(task.p_bar);
+        (void) rv;
+        LOG(DEBUG, "barrier_wait() returned: %d\n", rv);
+    #endif
 
     unsigned long task_start_time;
     for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
@@ -259,7 +278,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
         for (int i = 0; i < (int)task.in_buffers.size(); i++) {
             assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
-            LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+            // TODO actually move data from task.in_buffers[i]->msg_buf ===> fred_bufs[i]
+            LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%.50s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
 
         LOG(INFO,"task %s (%u): running FRED \n", task_name, iter);
@@ -273,26 +293,26 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
             fprintf(stderr,"ERROR: fred_accel failed\n");
             exit(1);            
         }
+        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
 
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
+            // TODO actually move data from fred_bufs[i] ==> task.out_buffers[i]->msg_buf
             int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
             if (len < task.out_buffers[i]->msg_size) {
             memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
             task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
             }
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
+            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%.50s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
-        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
     }
-
 	//cleanup and finish
 	fred_free(fred);
 	printf("Fred finished\n");
-
+#endif // USE_FRED
 }
 
 // This is the main method that actually implements the task behaviour. It reads its inputs
@@ -334,6 +354,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // the 1st line is the task relative deadline. all the following lines are actual execution times
   exec_time_f << task.deadline << endl;
 #endif // NDEBUG
+
+  LOG(INFO,"task %s: running on the CPU \n", task_name);
 
   // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
   LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
@@ -387,7 +409,10 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
         for (int i = 0; i < (int)task.in_buffers.size(); i++) {
             assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
-            LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+            // TODO: place here some dummy code (like a checksum calculation w xor) to mimic the memory reads required by the task model
+
+            // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
+            LOG(DEBUG,"task %s (%u), buffer %s(%u): got message: '%.50s'\n", task_name, iter, task.in_buffers[i]->name, (unsigned)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
         }
 
@@ -402,13 +427,17 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
-        int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
+            // the following lines mimic the memory writes required by the task model
+            // OBS: Although the use of snprintf helps debbuging, to see if the receiver tasks are indeed receiving the data, it increases the processing time.
+            // you might want to replace the snprintf my memcpy or memset to avoid any additional processing time.
+            int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
             if (len < task.out_buffers[i]->msg_size) {
-            memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
-            task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+                memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
+                task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
             }
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
+            // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
+            LOG(DEBUG,"task %s (%u): buffer %s, size %u, sent message: '%.50s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
@@ -488,25 +517,27 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // this represents how many times this dag must repeat to reach the hyperperiod
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
         unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
+        // the 1st and the last tasks must be running on the CPU, because of the end-to-end execution time logging
+        if (tasks[0].type != "cpu" || tasks[input->get_n_tasks()-1].type != "cpu"){
+            fprintf(stderr, "ERROR: both the 1st and the last tasks must be running on a CPU \n");
+            exit(1);
+        }
         threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], hyperperiod_iters, input->get_deadline(), input->get_period()));
-        // the 1st FRED cannot be accelerated
-        assert (tasks[0].type != "fred");
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
-            //printf("invalid task type '%s' - '%s'\n", tasks[i].name.c_str(), tasks[i].type.c_str());
-            threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
-            /*
             if (tasks[i].type == "cpu"){
                 threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
-            }if (tasks[i].type == "fred"){
+            }else if (tasks[i].type == "fred"){
                 threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            // place holder for the OpenCL task 
+            //}else if (tasks[i].type == "opencl"){
+            //    threads.push_back(std::thread(opencl_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
             }else{
                 fprintf(stderr, "ERROR: invalid task type '%s' \n", tasks[i].type.c_str());
                 exit(1);
             }
-            */
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);

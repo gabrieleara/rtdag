@@ -102,6 +102,7 @@ find_library(LIBFRED
 
 if(LIBFRED)
   message(STATUS "fred_lib found")
+  add_definitions(-DUSE_FRED)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -O2 -Wall -Werror -fpic")
   # in case FRED is not installed in the default location /usr/lib
   include_directories(${FRED_PATH}/include/ ${FRED_PATH})
