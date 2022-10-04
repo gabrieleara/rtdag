@@ -389,6 +389,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
         for (int i = 0; i < (int)task.in_buffers.size(); i++) {
             assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
+            // TODO: place here some dummy code (like a checksum calculation w xor) to mimic the memory reads required by the task model
+
             // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
             LOG(DEBUG,"task %s (%u), buffer %s(%u): got message: '%.50s'\n", task_name, iter, task.in_buffers[i]->name, (unsigned)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
@@ -405,6 +407,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
+            // the following lines mimic the memory writes required by the task model
             int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
             if (len < task.out_buffers[i]->msg_size) {
                 memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
