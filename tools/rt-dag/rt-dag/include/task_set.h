@@ -35,9 +35,10 @@
 
 #include "input_wrapper.h"
 
+#ifdef USE_FRED
 #include "fred_lib.h"
 typedef uint64_t data_t;
-
+#endif
 
 using namespace std;
 
@@ -215,8 +216,8 @@ private:
     // used only in process mode to keep the pid # of each task, enabling to kill the tasks CTRL+C
     vector<int> *pid_list;
 
-
 static void fred_task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
+#ifdef USE_FRED
 
 	struct fred_data *fred;
 	struct fred_hw_task *hw_ip;
@@ -311,6 +312,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 	//cleanup and finish
 	fred_free(fred);
 	printf("Fred finished\n");
+#endif // USE_FRED
+
 }
 
 // This is the main method that actually implements the task behaviour. It reads its inputs
