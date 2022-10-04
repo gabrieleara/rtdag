@@ -243,13 +243,16 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 
     for (unsigned i=0;i<total_buffers;++i){
         // get the pointers to the memory addresses created by fred-server
-        fred_bufs[i] = (data_t *)fred_map_buff(fred, hw_ip, 0);
+        //cout << "buffer " << i << endl;
+        fred_bufs[i] = (data_t *)fred_map_buff(fred, hw_ip, i);
         if (!fred_bufs[i]) {
             fprintf(stderr,"ERROR: fred_map_buff failed\n");
             exit(1);
         }    
     }
+
 /*
+
     unsigned long task_start_time;
     for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
         // wait all incomming messages
@@ -300,8 +303,6 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
 static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   char task_name[32];
-  // used to log only the initial part of the message. this is relevant when there are large messsages in the DAG
-  char logged_msg[50];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
   // 'seed' passed in case one needs to add some randomization in the execution time
@@ -408,6 +409,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
             // the following lines mimic the memory writes required by the task model
+            // OBS: Although the use of snprintf helps debbuging, to see if the receiver tasks are indeed receiving the data, it increases the processing time.
+            // you might want to replace the snprintf my memcpy or memset to avoid any additional processing time.
             int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
             if (len < task.out_buffers[i]->msg_size) {
                 memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
@@ -505,18 +508,18 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
-            printf("invalid task type '%s' - '%s'\n", tasks[i].name.c_str(), tasks[i].type.c_str());
             threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
-            /*
             if (tasks[i].type == "cpu"){
                 threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
-            }if (tasks[i].type == "fred"){
+            }else if (tasks[i].type == "fred"){
                 threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            // place holder for the OpenCL task 
+            //}else if (tasks[i].type == "opencl"){
+            //    threads.push_back(std::thread(opencl_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
             }else{
                 fprintf(stderr, "ERROR: invalid task type '%s' \n", tasks[i].type.c_str());
                 exit(1);
             }
-            */
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
             LOG(INFO,"[main] pid %d task %d\n", getpid(), i);
