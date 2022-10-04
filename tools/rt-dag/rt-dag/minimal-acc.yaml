@@ -6,11 +6,13 @@ max_out_edges: 2
 max_in_edges:  2
 max_msg_len: 64
 repetitions: 10 # the number of iterations of the complete DAG
-hyperperiod: 3000000
+hyperperiod: 900000
 dag_period: 300000 # in us
 dag_deadline: 300000 # in us
 tasks_name: ["n000","n001","n002","n003"]
 # it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc. 
+# currently only cpu and fred are implemented
+tasks_type: ["cpu","cpu","fred","cpu"]
 # The actual task computation time is decided randomly in runtime
 tasks_wcet: [50000,50000,50000,50000] # in us. 
 # The relative deadline of each task.
@@ -24,8 +26,8 @@ cpus_freq: [1000,1000,1000,1000,200,200,200,200]
 # values != 0 means there is a link from task l (line) to task c(column)
 # amount of bytes sent by each edge
 adjacency_matrix: [
-                     [0,30,50, 0],
-                     [0, 0, 0,32],
-                     [0, 0, 0,32],
-                     [0, 0, 0, 0],
+                     [0,30,8192, 0],
+                     [0, 0,   0,32],
+                     [0, 0,   0,80],
+                     [0, 0,   0, 0],
                   ]

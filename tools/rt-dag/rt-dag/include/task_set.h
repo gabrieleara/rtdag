@@ -249,7 +249,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
             exit(1);
         }    
     }
-
+/*
     unsigned long task_start_time;
     for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
         // wait all incomming messages
@@ -288,7 +288,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
         LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
     }
-
+*/
 	//cleanup and finish
 	fred_free(fred);
 	printf("Fred finished\n");
@@ -300,6 +300,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
 static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
   char task_name[32];
+  // used to log only the initial part of the message. this is relevant when there are large messsages in the DAG
+  char logged_msg[50];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
   // 'seed' passed in case one needs to add some randomization in the execution time
@@ -387,7 +389,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
         for (int i = 0; i < (int)task.in_buffers.size(); i++) {
             assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
-            LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
+            // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
+            LOG(DEBUG,"task %s (%u), buffer %s(%u): got message: '%.50s'\n", task_name, iter, task.in_buffers[i]->name, (unsigned)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
         }
 
@@ -402,13 +405,14 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
-        int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
+            int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
             if (len < task.out_buffers[i]->msg_size) {
-            memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
-            task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+                memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
+                task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
             }
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
-            LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
+            // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
+            LOG(DEBUG,"task %s (%u): buffer %s, size %u, sent message: '%.50s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
@@ -488,9 +492,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // this represents how many times this dag must repeat to reach the hyperperiod
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
         unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
+        // the 1st and the last tasks must be running on the CPU, because of the end-to-end execution time logging
+        if (tasks[0].type != "cpu" || tasks[input->get_n_tasks()-1].type != "cpu"){
+            fprintf(stderr, "ERROR: both the 1st and the last tasks must be running on the CPU \n");
+            exit(1);
+        }
         threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], hyperperiod_iters, input->get_deadline(), input->get_period()));
-        // the 1st FRED cannot be accelerated
-        assert (tasks[0].type != "fred");
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
