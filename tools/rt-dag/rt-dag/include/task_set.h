@@ -230,8 +230,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     fred_bufs.resize(total_buffers);
 
     // set task affinity
-    // LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
-    // pin_to_core(task.affinity);
+    LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
+    pin_to_core(task.affinity);
 
 	retval = fred_init(&fred);
 	if (retval) {
@@ -258,8 +258,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     LOG(INFO,"task %s: running FRED \n", task_name);
 
     // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
-    // LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
-    // set_sched_deadline(task.wcet, task.deadline, task.deadline);
+    LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
+    set_sched_deadline(task.wcet, task.deadline, task.deadline);
 
     #if TASK_IMPL == 0 
         // wait for all threads in the DAG to have been started up to this point
