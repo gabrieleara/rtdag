@@ -67,8 +67,10 @@ using ptr_edge = std::shared_ptr< edge_type >;
 typedef struct {
     string name;
     string type; // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are implemented
+    int fred_id; // positive integer >= 100 that indicates the specific IP that must be run on the FPGA
     unsigned affinity;          // which core the task is mapped
     unsigned long wcet;         // in us 
+    unsigned long runtime;      // in us. this is the task execution time assuming the ref island at top freq 
     unsigned long deadline;     // in us
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
@@ -134,7 +136,9 @@ public:
         for (unsigned int i = 0; i < input->get_n_tasks(); ++i) {
             tasks[i].name = input->get_tasks_name(i);
             tasks[i].type = input->get_tasks_type(i);
+            tasks[i].fred_id = input->get_fred_id(i);
             tasks[i].wcet = input->get_tasks_wcet(i);
+            tasks[i].runtime = input->get_tasks_runtime(i);
             tasks[i].deadline = input->get_tasks_rel_deadline(i);
             tasks[i].affinity = input->get_tasks_affinity(i);
             std::vector<int> in_tasks = get_input_tasks(input.get(), i);
@@ -225,6 +229,9 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     char task_name[32];
     strcpy(task_name, task.name.c_str());
 
+    // fred task ids starts with 100
+    assert(task.fred_id >= 100);
+
     const unsigned total_buffers = task.in_buffers.size()+task.out_buffers.size();
     vector <data_t*> fred_bufs;
     fred_bufs.resize(total_buffers);
@@ -249,9 +256,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         fprintf(stderr,"ERROR: fred_init failed\n");
         exit(1);        
 	}
-	// TODO fred_id is fixed
-    // fred setup
-    retval = fred_bind(fred, &hw_ip, 100);
+
+    retval = fred_bind(fred, &hw_ip, task.fred_id);
     if (retval) {
         fprintf(stderr,"ERROR: fred_bind failed\n");
         exit(1);        
@@ -341,6 +347,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     fprintf(stderr,"ERROR: sched_deadline does not support tasks shorter than 1024 ns.\n");
     exit(1);
   }
+
+  // just to make sure this task is not a fred task by mistake
+  assert(task.fred_id == -1);
 
   // set task affinity
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);

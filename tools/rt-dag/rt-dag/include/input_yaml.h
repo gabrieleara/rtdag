@@ -68,6 +68,8 @@ public:
     unsigned long get_hyperperiod() const { return inputs["hyperperiod"].as<unsigned long>();}
     const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}
     const char *  get_tasks_type(unsigned t) const { return tasks_type[t].c_str();}
+    int get_fred_id(unsigned t) const { return inputs["fred_id"][t].as<int>();}
+    unsigned long get_tasks_runtime(unsigned t) const { return inputs["tasks_runtime"][t].as<unsigned long>();}
     unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
     unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
     unsigned  get_tasks_affinity(unsigned t) const { return inputs["tasks_affinity"][t].as<unsigned>();}
