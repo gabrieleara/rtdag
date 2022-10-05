@@ -448,13 +448,16 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
         unsigned long wcet = ((float)task.wcet)*0.95f;
         LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
-        // the task execution time starts to count only after all incomming msgs were received
+        // the task execution time does not account for the time to receive/send data
         task_start_time = (unsigned long) micros(); 
         // runs busy waiting to mimic some actual processing.
         // using sleep or wait wont achieve the same result, for instance, in power consumption
         Count_Time(wcet);
 
-        // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
+        duration = micros() - task_start_time;
+        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
+
+        // send data to the next tasks.
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
             #ifdef ENABLE_MEM_ACCESS
@@ -473,10 +476,6 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
-        now_long = micros();
-        duration = now_long - task_start_time;
-        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
-
         #ifdef NDEBUG
             // write the task execution time into its log file
             exec_time_f << duration << endl;
@@ -490,7 +489,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         if (task.out_buffers.size() == 0){
             unsigned long last_dag_start;
             multi_queue_pop(task.p_dag_start_time, (void**)&last_dag_start, 1);
-            duration = now_long - last_dag_start;
+            duration = micros() - last_dag_start;
             LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n", task_name, iter, duration, US_TO_MSEC(duration), US_TO_SEC(duration));
             task.dag_resp_times[iter] = duration;
             if (duration > dag_deadline_us){
@@ -541,7 +540,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             dag_exec_time_f << task.dag_resp_times[i] << endl;
         dag_exec_time_f.close();
     }
-    printf("dummy out: %c\n",checksum);
+    // dont remove this print. otherwise the logic to read the memory will be optimized in Release mode
+    printf("%c\n",checksum);
 }
 
     void thread_launcher(unsigned seed){
