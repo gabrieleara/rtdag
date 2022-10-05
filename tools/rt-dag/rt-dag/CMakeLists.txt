@@ -75,6 +75,12 @@ find_package(YAML-CPP REQUIRED
 # Optional features
 ##############
 
+SET(ENABLE_MEM_ACCESS OFF CACHE BOOL "Enable memory rd/wr for every message sent. If disabled, it means that the execution time does not account for memory access time.")
+IF (ENABLE_MEM_ACCESS)
+    add_definitions(-DENABLE_MEM_ACCESS)
+ENDIF(ENABLE_MEM_ACCESS)
+message(STATUS "Memory access enabled: ${ENABLE_MEM_ACCESS}")
+
 #SET(ENABLE_PIPELINING OFF CACHE BOOL "Enable pipelining in the DAG, e.g., a task is processing a frame while the previous task is processing the previous frame and so on.")
 #SET(ENABLE_ZERO_COPY OFF CACHE BOOL "Sender and receiver access directly the shared memory")
 #SET(ENABLE_DAG_DEADLINE_CHECK OFF CACHE BOOL "Enable checking the DAG deadline")

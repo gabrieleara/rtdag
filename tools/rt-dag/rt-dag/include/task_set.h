@@ -274,11 +274,13 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         // wait all incomming messages
         LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
         LOG(INFO,"task %s (%u), waiting on pop(), for %d tasks to push()\n", task_name, iter, (int)task.in_buffers.size());
-
         multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
         for (int i = 0; i < (int)task.in_buffers.size(); i++) {
             assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
             // TODO actually move data from task.in_buffers[i]->msg_buf ===> fred_bufs[i]
+            #ifdef ENABLE_MEM_ACCESS
+            memcpy(fred_bufs[i],task.in_buffers[i]->msg_buf,task.in_buffers[i]->msg_size);
+            #endif
             LOG(INFO,"task %s (%u), buffer %s(%d): got message: '%.50s'\n", task_name, iter, task.in_buffers[i]->name, (int)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
 
@@ -299,11 +301,9 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
             // TODO actually move data from fred_bufs[i] ==> task.out_buffers[i]->msg_buf
-            int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
-            if (len < task.out_buffers[i]->msg_size) {
-            memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
-            task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
-            }
+            #ifdef ENABLE_MEM_ACCESS
+            memcpy(task.out_buffers[i+task.in_buffers.size()]->msg_buf, fred_bufs[i], task.out_buffers[i]->msg_size);
+            #endif
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
             LOG(INFO,"task %s (%u): buffer %s, size %u, sent message: '%.50s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
         }
@@ -334,6 +334,12 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // set task affinity
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
   pin_to_core(task.affinity);
+
+
+  // this volatile variable is only used when ENABLE_MEM_ACCESS is enabled in compile time.
+  // this is used to avoid optimize away all the mem read logic
+  volatile char checksum;
+  (void) checksum;
 
   unsigned long now_long, duration;
   unsigned long task_start_time;
@@ -409,8 +415,10 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         multi_queue_pop(task.in_buffers[0]->p_mq, NULL, task.in_buffers.size());
         for (int i = 0; i < (int)task.in_buffers.size(); i++) {
             assert((int)strlen(task.in_buffers[i]->msg_buf) == task.in_buffers[i]->msg_size - 1);
-            // TODO: place here some dummy code (like a checksum calculation w xor) to mimic the memory reads required by the task model
-
+            #ifdef ENABLE_MEM_ACCESS
+                // This is a dummy code (a checksum calculation w xor) to mimic the memory reads required by the task model
+                checksum ^= read_input_buffer(task.in_buffers[i]->msg_buf, task.in_buffers[i]->msg_size);
+            #endif
             // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
             LOG(DEBUG,"task %s (%u), buffer %s(%u): got message: '%.50s'\n", task_name, iter, task.in_buffers[i]->name, (unsigned)strlen(task.in_buffers[i]->msg_buf), task.in_buffers[i]->msg_buf);
         }
@@ -427,14 +435,16 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
-            // the following lines mimic the memory writes required by the task model
-            // OBS: Although the use of snprintf helps debbuging, to see if the receiver tasks are indeed receiving the data, it increases the processing time.
-            // you might want to replace the snprintf my memcpy or memset to avoid any additional processing time.
-            int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
-            if (len < task.out_buffers[i]->msg_size) {
-                memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
-                task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
-            }
+            #ifdef ENABLE_MEM_ACCESS
+                // the following lines mimic the memory writes required by the task model
+                // OBS: Although the use of snprintf helps debbuging, to see if the receiver tasks are indeed receiving the data, it increases the processing time.
+                // you might want to replace the snprintf my memcpy or memset to avoid any additional processing time.
+                int len = (int)snprintf(task.out_buffers[i]->msg_buf, task.out_buffers[i]->msg_size, "Message from %s, iter: %d", task_name, iter);
+                if (len < task.out_buffers[i]->msg_size) {
+                    memset(task.out_buffers[i]->msg_buf + len, '.', task.out_buffers[i]->msg_size - len);
+                    task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
+                }
+            #endif
             multi_queue_push(task.out_buffers[i]->p_mq, task.out_buffers[i]->mq_push_idx, task.out_buffers[i]->msg_buf);
             // this can be a logging issue if the buffer size is too long. The '%.50s' will limit the printed masg to the 1st 50 chars
             LOG(DEBUG,"task %s (%u): buffer %s, size %u, sent message: '%.50s'\n",task_name, iter, task.out_buffers[i]->name, (unsigned)strlen(task.out_buffers[i]->msg_buf), task.out_buffers[i]->msg_buf);
@@ -603,6 +613,15 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
     }
 #endif
+
+    // used to mimic the buffer memory reads when ENABLE_MEM_ACCESS is enabled
+    static char read_input_buffer(char * buffer, unsigned size){
+        char checksum = 0;
+        for (unsigned i=0;i<size;++i){
+            checksum ^= *(buffer)++; // use the value then moves to next position;
+        }
+        return checksum;
+    }
 
     static void set_sched_deadline(unsigned long runtime, unsigned long deadline, unsigned long period ){
         struct sched_attr sa ;
