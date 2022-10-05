@@ -233,6 +233,17 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
     pin_to_core(task.affinity);
 
+    // make sure the buffers are cleaned, otherwise assertion error will popup when ENABLE_MEM_ACCESS is disabled
+    for(int i=0;i<(int)task.in_buffers.size();++i){
+        memset(task.in_buffers[i]->msg_buf, '.', task.in_buffers[i]->msg_size);
+        task.in_buffers[i]->msg_buf [task.in_buffers[i]->msg_size-1]=0;
+    }
+
+    for(int i=0;i<(int)task.out_buffers.size();++i){
+        memset(task.out_buffers[i]->msg_buf, '.', task.out_buffers[i]->msg_size);
+        task.out_buffers[i]->msg_buf [task.out_buffers[i]->msg_size-1]=0;
+    }
+
 	retval = fred_init(&fred);
 	if (retval) {
         fprintf(stderr,"ERROR: fred_init failed\n");
@@ -336,6 +347,17 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   pin_to_core(task.affinity);
 
 
+  // make sure the buffers are cleaned, otherwise assertion error will popup when ENABLE_MEM_ACCESS is disabled
+  for(int i=0;i<(int)task.in_buffers.size();++i){
+      memset(task.in_buffers[i]->msg_buf, '.', task.in_buffers[i]->msg_size);
+      task.in_buffers[i]->msg_buf [task.in_buffers[i]->msg_size-1]=0;
+  }
+  
+  for(int i=0;i<(int)task.out_buffers.size();++i){
+      memset(task.out_buffers[i]->msg_buf, '.', task.out_buffers[i]->msg_size);
+      task.out_buffers[i]->msg_buf [task.out_buffers[i]->msg_size-1]=0;
+  }
+  
   // this volatile variable is only used when ENABLE_MEM_ACCESS is enabled in compile time.
   // this is used to avoid optimize away all the mem read logic
   volatile char checksum;
@@ -519,6 +541,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             dag_exec_time_f << task.dag_resp_times[i] << endl;
         dag_exec_time_f.close();
     }
+    printf("dummy out: %c\n",checksum);
 }
 
     void thread_launcher(unsigned seed){
