@@ -6,7 +6,7 @@ max_out_edges: 2
 max_in_edges:  2
 max_msg_len: 64
 repetitions: 10 # the number of iterations of the complete DAG
-hyperperiod: 3000000
+hyperperiod: 300000
 dag_period: 300000 # in us
 dag_deadline: 300000 # in us
 tasks_name: ["n000","n001","n002","n003"]

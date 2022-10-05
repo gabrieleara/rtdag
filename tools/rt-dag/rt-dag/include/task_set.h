@@ -128,7 +128,7 @@ public:
         // this represents how many times this dag must repeat to reach the hyperperiod
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
         unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
-        unsigned long *dag_resp_times = new unsigned long[hyperperiod_iters];
+        unsigned long *dag_resp_times = new unsigned long[hyperperiod_iters * input->get_repetitions()];
         tasks.resize(input->get_n_tasks());
         // here we loop over destination tasks
         for (unsigned int i = 0; i < input->get_n_tasks(); ++i) {
@@ -549,24 +549,26 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         unsigned long thread_id;
         // this represents how many times this dag must repeat to reach the hyperperiod
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
-        unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
+        const unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
+        // an 'repetations' tells how many times the hyperperiod has to be executed
+        const unsigned total_iterations = hyperperiod_iters * input->get_repetitions();
         // the 1st and the last tasks must be running on the CPU, because of the end-to-end execution time logging
         if (tasks[0].type != "cpu" || tasks[input->get_n_tasks()-1].type != "cpu"){
             fprintf(stderr, "ERROR: both the 1st and the last tasks must be running on a CPU \n");
             exit(1);
         }
-        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], hyperperiod_iters, input->get_deadline(), input->get_period()));
+        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], total_iterations, input->get_deadline(), input->get_period()));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
             if (tasks[i].type == "cpu"){
-                threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+                threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
             }else if (tasks[i].type == "fred"){
-                threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+                threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
             // place holder for the OpenCL task 
             //}else if (tasks[i].type == "opencl"){
-            //    threads.push_back(std::thread(opencl_task_creator, seed, input->get_dagset_name(), tasks[i], hyperperiod_iters, input->get_deadline(), 0));
+            //    threads.push_back(std::thread(opencl_task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
             }else{
                 fprintf(stderr, "ERROR: invalid task type '%s' \n", tasks[i].type.c_str());
                 exit(1);
