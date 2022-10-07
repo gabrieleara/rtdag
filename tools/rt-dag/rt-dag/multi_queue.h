@@ -51,7 +51,9 @@ static int multi_queue_init(multi_queue_t *that, int num_elems) {
 }
 
 // may block if the i-th elem is busy
-static void multi_queue_push(multi_queue_t *that, int i, void *elem) {
+// returns 1 if all elems have been pushed as input to target (so it has been notified)
+static int multi_queue_push(multi_queue_t *that, int i, void *elem) {
+  int rv = 0;
   pthread_mutex_lock(&that->mtx);
   while (that->busy_mask & (1 << i)) {
     that->waiting[i]++;
@@ -62,9 +64,12 @@ static void multi_queue_push(multi_queue_t *that, int i, void *elem) {
   }
   that->elems[i] = elem;
   that->busy_mask |= (1 << i);
-  if (that->busy_mask == (1 << that->num_elems) - 1)
+  if (that->busy_mask == (1 << that->num_elems) - 1) {
     pthread_cond_signal(&that->cv_ready);
+    rv = 1;
+  }
   pthread_mutex_unlock(&that->mtx);
+  return rv;
 }
 
 // only unblock once all size elems have been popped

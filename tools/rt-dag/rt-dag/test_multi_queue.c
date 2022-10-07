@@ -12,9 +12,11 @@ multi_queue_t mq;
 void *thread_body(void *arg) {
   long i = (long)arg;
   printf("pushing %ld\n", i);
-  multi_queue_push(&mq, i, (void*)i);
+  int rv = multi_queue_push(&mq, i, (void*)i);
+  printf("push(%ld) returned %d\n", i, rv);
   printf("pushing %ld\n", 10+i);
-  multi_queue_push(&mq, i, (void*)(10+i));
+  rv = multi_queue_push(&mq, i, (void*)(10+i));
+  printf("push(%ld) returned %d\n", 10+i, rv);
   printf("terminating %ld\n", i);
   return 0;
 }
