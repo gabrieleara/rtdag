@@ -4,6 +4,16 @@ function average() {
     awk '{s+=$1}END{print s/NR}' RS=" "
 }
 
+function max_all_freqs() {
+    local max_freq
+    local cpu
+    for cpu in 0 4; do
+        max_freq=$(cpufreq-info -c $cpu --hwlimits | cut -d' ' -f2)
+        cpufreq-set -c $cpu -g userspace
+        cpufreq-set -c $cpu -f "$max_freq"
+    done
+}
+
 (
     set -e
 
@@ -13,6 +23,8 @@ function average() {
         echo "Missing duration_us argument" >&2
         false
     fi
+
+    max_all_freqs
 
     for i in $(seq 1 1000); do
         taskset -c 4 chrt -f 99 ./build/rt_dag -c "$duration_us"
@@ -25,4 +37,6 @@ function average() {
     echo "However, for safety reasons, use instead:"
     echo "export TICKS_PER_US='${TICKS_PER_US}'"
     export TICKS_PER_US
+
+    max_all_freqs
 )

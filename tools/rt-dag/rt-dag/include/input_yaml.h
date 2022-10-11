@@ -55,25 +55,25 @@ public:
         }
     }
 
-    const char *  get_dagset_name() const { return dag_name.c_str();}
-    unsigned  get_n_tasks() const { return inputs["n_tasks"].as<unsigned>();}
-    unsigned  get_n_edges() const { return inputs["n_edges"].as<unsigned>();}
-    unsigned  get_n_cpus() const { return inputs["n_cpus"].as<unsigned>();}
-    unsigned  get_max_out_edges() const { return inputs["max_out_edges"].as<unsigned>();}
-    unsigned  get_max_in_edges() const { return inputs["max_in_edges"].as<unsigned>();}
-    unsigned  get_msg_len() const { return inputs["max_msg_len"].as<unsigned>();}
-    unsigned  get_repetitions() const { return inputs["repetitions"].as<unsigned>();}
-    unsigned long get_period() const { return inputs["dag_period"].as<unsigned long>();}
-    unsigned long get_deadline() const { return inputs["dag_deadline"].as<unsigned long>();}
-    unsigned long get_hyperperiod() const { return inputs["hyperperiod"].as<unsigned long>();}
-    const char *  get_tasks_name(unsigned t) const { return tasks_name[t].c_str();}
-    const char *  get_tasks_type(unsigned t) const { return tasks_type[t].c_str();}
-    int get_fred_id(unsigned t) const { return inputs["fred_id"][t].as<int>();}
-    unsigned long get_tasks_runtime(unsigned t) const { return inputs["tasks_runtime"][t].as<unsigned long>();}
-    unsigned long get_tasks_wcet(unsigned t) const { return inputs["tasks_wcet"][t].as<unsigned long>();}
-    unsigned long get_tasks_rel_deadline(unsigned t) const{ return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
-    unsigned  get_tasks_affinity(unsigned t) const { return inputs["tasks_affinity"][t].as<unsigned>();}
-    unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
+    const char *  get_dagset_name() const override { return dag_name.c_str();}
+    unsigned  get_n_tasks() const override { return inputs["n_tasks"].as<unsigned>();}
+    unsigned  get_n_edges() const override { return inputs["n_edges"].as<unsigned>();}
+    unsigned  get_n_cpus() const override { return inputs["n_cpus"].as<unsigned>();}
+    unsigned  get_max_out_edges() const override { return inputs["max_out_edges"].as<unsigned>();}
+    unsigned  get_max_in_edges() const override { return inputs["max_in_edges"].as<unsigned>();}
+    unsigned  get_msg_len() const override { return inputs["max_msg_len"].as<unsigned>();}
+    unsigned  get_repetitions() const override { return inputs["repetitions"].as<unsigned>();}
+    unsigned long get_period() const override { return inputs["dag_period"].as<unsigned long>();}
+    unsigned long get_deadline() const override { return inputs["dag_deadline"].as<unsigned long>();}
+    unsigned long get_hyperperiod() const override { return inputs["hyperperiod"].as<unsigned long>();}
+    const char *  get_tasks_name(unsigned t) const override { return tasks_name[t].c_str();}
+    const char *  get_tasks_type(unsigned t) const override { return tasks_type[t].c_str();}
+    int get_fred_id(unsigned t) const override { return inputs["fred_id"][t].as<int>();}
+    unsigned long get_tasks_runtime(unsigned t) const override { return inputs["tasks_runtime"][t].as<unsigned long>();}
+    unsigned long get_tasks_wcet(unsigned t) const override { return inputs["tasks_wcet"][t].as<unsigned long>();}
+    unsigned long get_tasks_rel_deadline(unsigned t) const override { return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
+    unsigned  get_tasks_affinity(unsigned t) const override { return inputs["tasks_affinity"][t].as<unsigned>();}
+    unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const override { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
 };
 
 #endif // INPUT_YAML_H_

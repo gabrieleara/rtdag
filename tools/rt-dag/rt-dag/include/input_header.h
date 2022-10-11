@@ -22,22 +22,22 @@ class input_header: public input_wrapper{
 public:
     input_header(const char* fname_): input_wrapper(fname_) {}
 
-    const char *    get_dagset_name() const { return dagset_name;}
-    unsigned  get_n_tasks() const { return N_TASKS;}
-    unsigned  get_n_edges() const { return N_EDGES;}
+    const char *    get_dagset_name() const override { return dagset_name;}
+    unsigned  get_n_tasks() const override { return N_TASKS;}
+    unsigned  get_n_edges() const override { return N_EDGES;}
     unsigned  get_n_cpus() const  { return N_CPUS;}
-    unsigned  get_max_out_edges() const { return MAX_OUT_EDGES_PER_TASK;}
-    unsigned  get_max_in_edges() const { return MAX_IN_EDGES_PER_TASK;}
-    unsigned  get_msg_len() const { return MAX_MSG_LEN;}
-    unsigned  get_repetitions() const { return REPETITIONS;}
-    unsigned long get_period() const { return DAG_PERIOD;}
-    unsigned long get_deadline() const { return DAG_DEADLINE;}
-    unsigned long get_hyperperiod() const { return HYPERPERIOD;}
-    const char *    get_tasks_name(unsigned t) const { return tasks_name[t];}
-    unsigned long  get_tasks_wcet(unsigned t) const { return tasks_wcet[t];}
+    unsigned  get_max_out_edges() const override { return MAX_OUT_EDGES_PER_TASK;}
+    unsigned  get_max_in_edges() const override { return MAX_IN_EDGES_PER_TASK;}
+    unsigned  get_msg_len() const override { return MAX_MSG_LEN;}
+    unsigned  get_repetitions() const override { return REPETITIONS;}
+    unsigned long get_period() const override { return DAG_PERIOD;}
+    unsigned long get_deadline() const override { return DAG_DEADLINE;}
+    unsigned long get_hyperperiod() const override { return HYPERPERIOD;}
+    const char *    get_tasks_name(unsigned t) const override { return tasks_name[t];}
+    unsigned long  get_tasks_wcet(unsigned t) const override { return tasks_wcet[t];}
     unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
-    unsigned  get_tasks_affinity(unsigned t) const { return task_affinity[t];}
-    unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const { return adjacency_matrix[t1][t2];}
+    unsigned  get_tasks_affinity(unsigned t) const override { return task_affinity[t];}
+    unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const override { return adjacency_matrix[t1][t2];}
 };
 
 #endif // INPUT_HEADER_H_

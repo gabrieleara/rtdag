@@ -75,7 +75,7 @@ using namespace std;
 // unsigned long dag_start_time;
 vector<int> pid_list;
 
-void exit_all(int sigid){
+void exit_all([[maybe_unused]] int sigid){
 #if TASK_IMPL == 0
     printf("Killing all threads\n");
     // TODO: how to kill the threads without access to the thread list ?
@@ -104,7 +104,7 @@ int run_dag(string in_fname) {
   std::unique_ptr<input_wrapper> inputs = std::make_unique<input_type>(in_fname.c_str());
   inputs->dump();
   TaskSet task_set(inputs);
-  cout << "\nPrinting the input DAG: \n"; 
+  cout << "\nPrinting the input DAG: \n";
   task_set.print();
 
   // Check whether the environment contains the TICKS_PER_US variable
@@ -114,7 +114,8 @@ int run_dag(string in_fname) {
   }
 
   // create the directory where execution time are saved
-  struct stat st = {0};
+  struct stat st; // This is C++, you cannot use {0} to initialize to zero an entire struct.
+  memset(&st, 0, sizeof(struct stat));
   if (stat(task_set.get_dagset_name(), &st) == -1) {
     // permisions required in order to allow using rsync since rt-dag is run as root in the target computer
     int rv = mkdir(task_set.get_dagset_name(), 0777);
@@ -182,7 +183,7 @@ int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
 
     COMPILER_BARRIER();
 
-    uint64_t retv = do_work_for_us_using_ticks(duration_us);
+    uint64_t retv = Count_Time_Ticks(duration_us);
     (void) (retv);
 
     COMPILER_BARRIER();
@@ -209,13 +210,15 @@ int calibrate(uint64_t duration_us) {
     ret = get_ticks_per_us(false);
     if (ret) {
         // Set a value that is not so small in ticks_per_us
-        ticks_per_us = 250;
+        ticks_per_us = 10;
     }
 
     cout << "About to calibrate for (roughly) "<< duration_us << " micros ..." << endl;
 
     // Will never return an error
     test_calibration(duration_us, time_difference);
+    // fprintf(stderr, "DEBUG: %llu %llu %llu %llu\n", duration_us, time_difference, ticks_per_us, duration_us * ticks_per_us);
+
     ticks_per_us = floor(double(duration_us * ticks_per_us) / double(time_difference));
 
     cout << "Calibration successful, use: 'export TICKS_PER_US=" << ticks_per_us << "'" << endl;

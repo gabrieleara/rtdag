@@ -3,9 +3,9 @@
  * @brief It also hides resources managment details, like mem alloc, etc. required to create trheads/process. Like in RAII style.
  * @version 0.1
  * @date 2022-07-06
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 #ifndef TASK_SET_H_
 #define TASK_SET_H_
@@ -45,7 +45,7 @@ using namespace std;
 #define BUFFER_LINES 1
 
 // choose the appropriate communication method based on the task implementation
-#if TASK_IMPL == 0 
+#if TASK_IMPL == 0
     // thread-based task implementation
     using dag_deadline_type = multi_queue_t;
 #else
@@ -69,8 +69,8 @@ typedef struct {
     string type; // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are implemented
     int fred_id; // positive integer >= 100 that indicates the specific IP that must be run on the FPGA
     unsigned affinity;          // which core the task is mapped
-    unsigned long wcet;         // in us 
-    unsigned long runtime;      // in us. this is the task execution time assuming the ref island at top freq 
+    unsigned long wcet;         // in us
+    unsigned long runtime;      // in us. this is the task execution time assuming the ref island at top freq
     unsigned long deadline;     // in us
     vector< ptr_edge > in_buffers;
     vector< ptr_edge > out_buffers;
@@ -203,12 +203,12 @@ public:
             for(c=0;c<tasks[i].out_buffers.size();++c)
               cout << tasks[i].out_buffers[c]->name << "(" << tasks[i].out_buffers[c]->msg_size << "," << tasks[i].out_buffers[c]->mq_push_idx << "), ";
             cout << endl;
-        }    
+        }
   }
 
   void launch_tasks(vector<int> *task_id, unsigned seed){
     pid_list = task_id;
-    #if TASK_IMPL == 0 
+    #if TASK_IMPL == 0
         thread_launcher(seed);
     #else
         process_launcher(seed);
@@ -221,7 +221,16 @@ private:
     vector<int> *pid_list;
 
 static void fred_task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
-#ifdef USE_FRED
+#ifndef USE_FRED
+    // FIXME: This is not a good way of doing this optionally
+    (void)seed;
+    (void)dag_name;
+    (void)task;
+    (void)hyperperiod_iters;
+    (void)dag_deadline_us;
+    (void)period_us;
+
+#else // USE_FRED
 
 	struct fred_data *fred;
 	struct fred_hw_task *hw_ip;
@@ -254,13 +263,13 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 	retval = fred_init(&fred);
 	if (retval) {
         fprintf(stderr,"ERROR: fred_init failed\n");
-        exit(1);        
+        exit(1);
 	}
 
     retval = fred_bind(fred, &hw_ip, task.fred_id);
     if (retval) {
         fprintf(stderr,"ERROR: fred_bind failed\n");
-        exit(1);        
+        exit(1);
     }
 
     for (unsigned i=0;i<total_buffers;++i){
@@ -270,7 +279,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         if (!fred_bufs[i]) {
             fprintf(stderr,"ERROR: fred_map_buff failed\n");
             exit(1);
-        }    
+        }
     }
     LOG(INFO,"task %s: running FRED \n", task_name);
 
@@ -278,7 +287,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
     set_sched_deadline(task.wcet, task.deadline, task.deadline);
 
-    #if TASK_IMPL == 0 
+    #if TASK_IMPL == 0
         // wait for all threads in the DAG to have been started up to this point
         LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void*)task.p_bar, task.name.c_str());
         int rv = pthread_barrier_wait(task.p_bar);
@@ -303,14 +312,14 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 
         LOG(INFO,"task %s (%u): running FRED \n", task_name, iter);
         // the task execution time starts to count only after all incomming msgs were received
-        task_start_time = (unsigned long) micros(); 
+        task_start_time = (unsigned long) micros();
         (void) task_start_time;
 
         // fred run -- fpga offloading
         retval = fred_accel(fred, hw_ip);
         if (retval) {
             fprintf(stderr,"ERROR: fred_accel failed\n");
-            exit(1);            
+            exit(1);
         }
         LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
 
@@ -361,15 +370,15 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       memset(task.in_buffers[i]->msg_buf, '.', task.in_buffers[i]->msg_size);
       task.in_buffers[i]->msg_buf [task.in_buffers[i]->msg_size-1]=0;
   }
-  
+
   for(int i=0;i<(int)task.out_buffers.size();++i){
       memset(task.out_buffers[i]->msg_buf, '.', task.out_buffers[i]->msg_size);
       task.out_buffers[i]->msg_buf [task.out_buffers[i]->msg_size-1]=0;
   }
-  
+
   // this volatile variable is only used when ENABLE_MEM_ACCESS is enabled in compile time.
   // this is used to avoid optimize away all the mem read logic
-  volatile char checksum;
+  volatile char checksum = 0;
   (void) checksum;
 
   unsigned long now_long, duration;
@@ -379,7 +388,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 #ifdef NDEBUG
   // file to save the task execution time in debug mode
   ofstream exec_time_f;
-  exec_time_fname = dag_name;  
+  exec_time_fname = dag_name;
   exec_time_fname += "/";
   exec_time_fname += task.name;
   exec_time_fname += ".log";
@@ -405,7 +414,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
       LOG(DEBUG, "pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
   }
 
-#if TASK_IMPL == 0 
+#if TASK_IMPL == 0
   // wait for all threads in the DAG to have been started up to this point
   LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void*)task.p_bar, task.name.c_str());
   int rv = pthread_barrier_wait(task.p_bar);
@@ -458,10 +467,14 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         unsigned long wcet = ((float)task.wcet)*0.95f;
         LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
         // the task execution time does not account for the time to receive/send data
-        task_start_time = (unsigned long) micros(); 
+        task_start_time = (unsigned long) micros();
         // runs busy waiting to mimic some actual processing.
         // using sleep or wait wont achieve the same result, for instance, in power consumption
+#ifdef USE_COUNT_TICK
+        Count_Time_Ticks(wcet);
+#else
         Count_Time(wcet);
+#endif
 
         duration = micros() - task_start_time;
         LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
@@ -524,14 +537,14 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     if (task.out_buffers.size() == 0){
         // file to save the dag execution time, created only by the end task
         ofstream dag_exec_time_f;
-        exec_time_fname = dag_name;  
+        exec_time_fname = dag_name;
         exec_time_fname += "/";
         exec_time_fname += dag_name;
         exec_time_fname += ".log";
         // if it's the first time the file is open, then write the deadline as the 1st line.
         // otherwise, dont write the deadline again.
         bool add_deadline=true;
-        std::ifstream file_exist(exec_time_fname);        
+        std::ifstream file_exist(exec_time_fname);
         if(file_exist.is_open()){
             add_deadline=false;
         }
@@ -575,7 +588,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
                 threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
             }else if (tasks[i].type == "fred"){
                 threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
-            // place holder for the OpenCL task 
+            // place holder for the OpenCL task
             //}else if (tasks[i].type == "opencl"){
             //    threads.push_back(std::thread(opencl_task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
             }else{
@@ -588,10 +601,10 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
         for (auto &th : threads) {
             th.join();
-        }        
+        }
     }
 
-#if TASK_IMPL != 0 
+#if TASK_IMPL != 0
     void process_launcher(unsigned seed){
         this->spawn_proc(tasks[0],seed,input->get_period());
         for(unsigned i=1;i<input->get_n_tasks();++i){
@@ -600,11 +613,11 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // join processes
 
         // a simpler way to wait the tasks ...
-        // while ((wpid = wait(&status)) > 0); // this way, the father waits for all the child processes 
+        // while ((wpid = wait(&status)) > 0); // this way, the father waits for all the child processes
         // a beter way to make sure all the tasks were closed
         // https://stackoverflow.com/questions/8679226/does-a-kill-signal-exit-a-process-immediately
         assert(pid_list->size()==input->get_n_tasks());
-        // this one is deleted 
+        // this one is deleted
         vector<int> local_task_id(*pid_list);
         while( local_task_id.size() != 0 ){
             int pid = (int)waitpid(-1, NULL, WNOHANG);
@@ -617,9 +630,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
                 }else{
                     local_task_id.erase(task_it);
                 }
-                // this find is done only to get the name of the killed task 
+                // this find is done only to get the name of the killed task
                 task_it = find(pid_list->begin(),pid_list->end(), pid);
-                unsigned task_idx = task_it - pid_list->begin();                    
+                unsigned task_idx = task_it - pid_list->begin();
                 printf("Task %s pid %d killed\n", tasks[task_idx].name.c_str(), pid);
             }else if( pid == 0 ){
                 sleep(1);
@@ -677,7 +690,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     }
 
     static void pin_to_core(const unsigned cpu){
-        #if TASK_IMPL == 0 
+        #if TASK_IMPL == 0
             pin_thread(cpu);
         #else
             pin_process(cpu);
@@ -703,7 +716,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         cpu_set_t  mask;
         int ret;
         // this variable is unsued when compiling in Release mode
-        (void) ret;        
+        (void) ret;
         CPU_ZERO(&mask);
         CPU_SET(cpu, &mask);
         ret = sched_setaffinity(getpid(), sizeof(mask), &mask);

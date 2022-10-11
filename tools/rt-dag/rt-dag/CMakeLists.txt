@@ -1,8 +1,13 @@
-cmake_minimum_required(VERSION 3.0)
-project(rt_dag LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.16)
+project(rt_dag LANGUAGES C CXX)
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED TRUE)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+# TODO: add toggles from command line
 add_definitions(-DUSE_COUNT_TICK)
 add_definitions(-DUSE_COMPILER_BARRIER)
 
@@ -10,7 +15,16 @@ add_definitions(-DUSE_COMPILER_BARRIER)
 # basic definitions
 ##############
 # compilation parameters
-add_compile_options(-Wall -Wno-variadic-macros -Wno-long-long -pedantic)
+add_compile_options(
+  # -Werror
+  -Wall
+  -Wextra
+  -Wpedantic
+  -Wno-variadic-macros
+  -Wno-long-long
+  -Wno-extra-semi
+)
+
 # set if the exec must be configured for debug or release/optimized
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
@@ -21,8 +35,7 @@ message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 # logger vebosity level
 ##############
 
-set(LOG_LEVEL "0" CACHE STRING
-  "Logger vebosity level")
+set(LOG_LEVEL "0" CACHE STRING "Logger vebosity level")
 set(LOGValues "0;1;2;3;4" CACHE STRING
   "Possible verbosity values. 0 is the lowest verbosity")
 set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOGValues})
@@ -102,7 +115,7 @@ message(STATUS "Memory access enabled: ${ENABLE_MEM_ACCESS}")
 set(FRED_PATH "/usr" CACHE STRING "PATH to fred lib")
 find_library(LIBFRED
     NAMES fred libfred fred-lib fredlib
-    HINTS 
+    HINTS
         ${FRED_PATH}/lib
 )
 
@@ -119,33 +132,59 @@ endif()
 # build internal depedencies as a library
 ##############
 
-include_directories(
-    ${CMAKE_SOURCE_DIR}/../../../common/include/
-    ${CMAKE_SOURCE_DIR}/include/
-    ${CMAKE_SOURCE_DIR}/
+add_library(time-helper STATIC
+  ${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c
+  ${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c
 )
 
-set( LIB_SOURCES
-${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c
-${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c
+target_include_directories(time-helper
+  PUBLIC ${CMAKE_SOURCE_DIR}/../../../common/include/
 )
-set( LIB_HEADERS
-${CMAKE_SOURCE_DIR}/../../../common/include/periodic_task.h
-${CMAKE_SOURCE_DIR}/../../../common/include/time_aux.h
-)
-add_library( YourLib ${LIB_SOURCES} ${LIB_HEADERS} )
 
-# for some reason, it is required to add this line in order to link the c code into cpp exec
-set_source_files_properties(${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c PROPERTIES LANGUAGE CXX)
-set_source_files_properties(${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c PROPERTIES LANGUAGE CXX)
+# set_source_files_properties(
+#   ${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c PROPERTIES LANGUAGE C)
+# set_source_files_properties(
+#   ${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c PROPERTIES LANGUAGE C)
+
+# include_directories(
+#     ${CMAKE_SOURCE_DIR}/../../../common/include/
+#     ${CMAKE_SOURCE_DIR}/include/
+#     ${CMAKE_SOURCE_DIR}/
+# )
+
+# set( LIB_SOURCES
+# ${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c
+# ${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c
+# )
+# set( LIB_HEADERS
+# ${CMAKE_SOURCE_DIR}/../../../common/include/periodic_task.h
+# ${CMAKE_SOURCE_DIR}/../../../common/include/time_aux.h
+# )
+# add_library( YourLib ${LIB_SOURCES} ${LIB_HEADERS} )
+
+# # for some reason, it is required to add this line in order to link the c code into cpp exec
+# set_source_files_properties(${CMAKE_SOURCE_DIR}/../../../common/src/periodic_task.c PROPERTIES LANGUAGE CXX)
+# set_source_files_properties(${CMAKE_SOURCE_DIR}/../../../common/src/time_aux.c PROPERTIES LANGUAGE CXX)
 
 ##############
 # determining the source files to be compiled based on the configurable parameters
 ##############
 
-add_executable( ${CMAKE_PROJECT_NAME} main.cpp )
-target_link_libraries( ${CMAKE_PROJECT_NAME} YourLib m rt pthread yaml-cpp)
+add_executable(rt_dag main.cpp)
+target_include_directories(rt_dag
+  PRIVATE
+  ${CMAKE_SOURCE_DIR}/include/
+  ${CMAKE_SOURCE_DIR}/
+)
+
+target_link_libraries(rt_dag
+  time-helper
+  m
+  rt
+  pthread
+  yaml-cpp
+)
 
 if(LIBFRED)
-  target_link_libraries(${PROJECT_NAME} fred)
+  target_link_libraries(rt_dag fred)
 endif()
