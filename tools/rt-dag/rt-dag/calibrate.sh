@@ -32,7 +32,7 @@ function max_all_freqs() {
 
     TICKS_PER_US=$(grep export /tmp/rt-dag.calib | cut -d '=' -f2 | cut -d "'" -f1 | average)
     echo "AVERAGE: $TICKS_PER_US"
-    TICKS_PER_US=$(echo "($TICKS_PER_US * 9) / 10" | bc)
+    TICKS_PER_US=$(echo "($TICKS_PER_US * 9) / 10" | bc -l)
 
     echo "However, for safety reasons, use instead:"
     echo "export TICKS_PER_US='${TICKS_PER_US}'"

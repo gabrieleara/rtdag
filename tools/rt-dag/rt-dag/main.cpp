@@ -219,7 +219,9 @@ int calibrate(uint64_t duration_us) {
     test_calibration(duration_us, time_difference);
     // fprintf(stderr, "DEBUG: %llu %llu %llu %llu\n", duration_us, time_difference, ticks_per_us, duration_us * ticks_per_us);
 
-    ticks_per_us = floor(double(duration_us * ticks_per_us) / double(time_difference));
+    using ticks_type = decltype(ticks_per_us);
+
+    ticks_per_us = ticks_type(double(duration_us * ticks_per_us) / double(time_difference));
 
     cout << "Calibration successful, use: 'export TICKS_PER_US=" << ticks_per_us << "'" << endl;
 
