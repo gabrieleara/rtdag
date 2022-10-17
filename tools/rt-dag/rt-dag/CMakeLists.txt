@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.15)
 project(rt_dag LANGUAGES C CXX)
 
 # no need to require this. it only makes it hardware to use older compilers
