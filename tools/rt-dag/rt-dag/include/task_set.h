@@ -386,7 +386,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   unsigned long task_start_time;
   string exec_time_fname;
 
-#ifdef NDEBUG
+#ifndef NDEBUG
   // file to save the task execution time in debug mode
   ofstream exec_time_f;
   exec_time_fname = dag_name;
@@ -499,7 +499,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
 
-        #ifdef NDEBUG
+        #ifndef NDEBUG
             // write the task execution time into its log file
             exec_time_f << duration << endl;
             if (duration > task.deadline){
@@ -517,7 +517,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             task.dag_resp_times[iter] = duration;
             if (duration > dag_deadline_us){
                 // we do expect a few deadline misses, despite all precautions, we'll find them in the output file
-                LOG(DEBUG, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
+                LOG(ERROR, "ERROR: dag deadline violation detected in iteration %u. duration %ld us\n", iter, duration);
             }
         }
 
@@ -531,7 +531,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     } // end hyperperiod loop
 
 
-    #ifdef NDEBUG
+    #ifndef NDEBUG
     exec_time_f.close();
     #endif // NDEBUG
 

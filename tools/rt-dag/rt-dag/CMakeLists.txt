@@ -35,7 +35,7 @@ message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 # logger vebosity level
 ##############
 
-set(LOG_LEVEL "0" CACHE STRING "Logger vebosity level")
+set(LOG_LEVEL "1" CACHE STRING "Logger vebosity level")
 set(LOGValues "0;1;2;3;4" CACHE STRING
   "Possible verbosity values. 0 is the lowest verbosity")
 set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOGValues})
