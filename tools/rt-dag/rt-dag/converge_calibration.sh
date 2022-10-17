@@ -1,14 +1,25 @@
 #!/bin/bash
 
+function usage() {
+    echo "usage: ${BASH_SOURCE[0]} CPU DURATION_US"
+}
+
 (
     set -e
 
     amidone=0
+    cpu="$1"
+    duration_us="$2"
 
-    duration_us="$1"
+    if [ -z "$cpu" ]; then
+        echo "Missing cpu argument" >&2
+        usage >&2
+        false
+    fi
 
-    if [ -z "$duration_us" ]; then
+    if [ -z "$duration_us" ] ; then
         echo "Missing duration_us argument" >&2
+        usage >&2
         false
     fi
 

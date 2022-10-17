@@ -1,5 +1,9 @@
 #!/bin/bash
 
+function usage() {
+    echo "usage: ${BASH_SOURCE[0]} CPU DURATION_US"
+}
+
 function average() {
     awk '{s+=$1}END{print s/NR}' RS=" "
 }
@@ -7,7 +11,7 @@ function average() {
 function max_all_freqs() {
     local max_freq
     local cpu
-    for cpu in 0 4; do
+    for cpu in $(seq 0 $(($(nproc) - 1))); do
         max_freq=$(cpufreq-info -c $cpu --hwlimits | cut -d' ' -f2)
         cpufreq-set -c $cpu -g userspace
         cpufreq-set -c $cpu -f "$max_freq"
@@ -17,10 +21,18 @@ function max_all_freqs() {
 (
     set -e
 
-    duration_us="$1"
+    cpu="$1"
+    duration_us="$2"
+
+    if [ -z "$cpu" ]; then
+        echo "Missing cpu argument" >&2
+        usage >&2
+        false
+    fi
 
     if [ -z "$duration_us" ] ; then
         echo "Missing duration_us argument" >&2
+        usage >&2
         false
     fi
 

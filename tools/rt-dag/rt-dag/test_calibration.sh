@@ -7,7 +7,7 @@ function average() {
 function max_all_freqs() {
     local max_freq
     local cpu
-    for cpu in 0 4; do
+    for cpu in $(seq 0 $(($(nproc) - 1))); do
         max_freq=$(cpufreq-info -c $cpu --hwlimits | cut -d' ' -f2)
         cpufreq-set -c $cpu -g userspace
         cpufreq-set -c $cpu -f "$max_freq"
