@@ -12,9 +12,9 @@ dag_deadline: 300000 # in us
 tasks_name: ["n000","n001","n002","n003","n004","n005"]
 # it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc. 
 # The actual task computation time is decided randomly in runtime
-tasks_wcet: [1000,95000,95000,95000,95000,1000] # in us. 
+tasks_wcet: [2000,95000,95000,95000,95000,2000] # in us. 
 # The original task computation time, using the top island at the top frequency as a reference
-tasks_runtime: [1000,95000,95000,95000,95000,1000] # in us. 
+tasks_runtime: [2000,95000,95000,95000,95000,2000] # in us. 
 # The relative deadline of each task.
 # make sure that the sum of the longest path must be <= DAG_DEADLINE since
 # this consistency is not done here !!!
