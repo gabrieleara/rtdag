@@ -136,6 +136,7 @@ public:
         for (unsigned int i = 0; i < input->get_n_tasks(); ++i) {
             tasks[i].name = input->get_tasks_name(i);
             tasks[i].type = input->get_tasks_type(i);
+            // it will return -1 if there is no fred_accel
             tasks[i].fred_id = input->get_fred_id(i);
             tasks[i].wcet = input->get_tasks_wcet(i);
             tasks[i].runtime = input->get_tasks_runtime(i);
