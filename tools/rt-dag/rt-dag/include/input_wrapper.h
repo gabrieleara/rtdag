@@ -11,7 +11,7 @@ using namespace std;
 
 class input_wrapper {
 public:
-    // not supported mty older compilers
+    // not supported by older compilers
     //input_wrapper([[maybe_unused]] const char *fname_) {}
     input_wrapper(const char *fname_) {(void) fname_; }
     virtual ~input_wrapper() = default;
