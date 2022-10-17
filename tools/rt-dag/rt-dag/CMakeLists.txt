@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 project(rt_dag LANGUAGES C CXX)
 
-set(CMAKE_C_STANDARD 17)
-set(CMAKE_C_STANDARD_REQUIRED TRUE)
+# no need to require this. it only makes it hardware to use older compilers
+# set(CMAKE_C_STANDARD 17)
+# set(CMAKE_C_STANDARD_REQUIRED TRUE)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+# set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 # TODO: add toggles from command line
 add_definitions(-DUSE_COUNT_TICK)
@@ -22,7 +23,7 @@ add_compile_options(
   -Wpedantic
   -Wno-variadic-macros
   -Wno-long-long
-  -Wno-extra-semi
+  #-Wno-extra-semi only avaible in newer compilers
 )
 
 # set if the exec must be configured for debug or release/optimized
