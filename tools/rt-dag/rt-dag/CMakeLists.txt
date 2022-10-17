@@ -9,7 +9,6 @@ project(rt_dag LANGUAGES C CXX)
 # set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 # TODO: add toggles from command line
-add_definitions(-DUSE_COUNT_TICK)
 add_definitions(-DUSE_COMPILER_BARRIER)
 
 ##############
@@ -94,6 +93,12 @@ IF (ENABLE_MEM_ACCESS)
     add_definitions(-DENABLE_MEM_ACCESS)
 ENDIF(ENABLE_MEM_ACCESS)
 message(STATUS "Memory access enabled: ${ENABLE_MEM_ACCESS}")
+
+SET(ENABLE_COUNT_TICK ON CACHE BOOL "Enable tick-based method to emulate computation. If disabled, it means that the execution time is emulated using 'clock_gettime'.")
+IF (ENABLE_COUNT_TICK)
+    add_definitions(-DUSE_COUNT_TICK)
+ENDIF(ENABLE_COUNT_TICK)
+message(STATUS "Count tick enabled: ${ENABLE_COUNT_TICK}")
 
 #SET(ENABLE_PIPELINING OFF CACHE BOOL "Enable pipelining in the DAG, e.g., a task is processing a frame while the previous task is processing the previous frame and so on.")
 #SET(ENABLE_ZERO_COPY OFF CACHE BOOL "Sender and receiver access directly the shared memory")
