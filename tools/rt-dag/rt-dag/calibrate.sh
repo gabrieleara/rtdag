@@ -1,56 +1,64 @@
 #!/bin/bash
 
 function usage() {
-    echo "usage: ${BASH_SOURCE[0]} CPU DURATION_US"
+    echo "usage: ${BASH_SOURCE[0]} CPU FREQ DURATION_US"
 }
 
 function average() {
-    awk '{s+=$1}END{print s/NR}' RS=" "
+    awk '{ total += $1; count++ } END { print total/count }'
 }
 
-function max_all_freqs() {
-    local max_freq
+function freq_max_all() {
     local cpu
-    for cpu in $(seq 0 $(($(nproc) - 1))); do
-        max_freq=$(cpufreq-info -c $cpu --hwlimits | cut -d' ' -f2)
-        cpufreq-set -c $cpu -g userspace
-        cpufreq-set -c $cpu -f "$max_freq"
+    local ncpu
+
+    ncpu=$(nproc)
+    for ((cpu = 0; cpu < ncpu; cpu++)); do
+        cpufreq-set -c "$cpu" -g userspace
+
+        # Set the maximum freq on each CPU
+        cpufreq-set -c "$cpu" -f "$(cpufreq-info -c "$cpu" -l | cut -d ' ' -f 2)"
     done
+}
+
+function main() {
+    local cpu="$1"
+    local freq="$2"
+    local duration_us="$3"
+
+    if [ -z "$cpu" ]; then
+        echo "Missing CPU argument" >&2
+        usage >&2
+        return 1
+    fi
+
+    if [ -z "$freq" ]; then
+        echo "Missing FREQ argument" >&2
+        usage >&2
+        return 1
+    fi
+
+    if [ -z "$duration_us" ]; then
+        echo "Missing DURATION_US argument" >&2
+        usage >&2
+        return 1
+    fi
+
+    # FIXME: restore original frequencies
+
+    freq_max_all
+    cpufreq-set -c "$cpu" -f "$freq"
+    echo "DEBUG: TICKS_PER_US=$TICKS_PER_US" >&2
+    for i in $(seq 1 1000); do
+        taskset -c "$cpu" chrt -f 99 ./build/rt_dag -c "$duration_us"
+    done > /tmp/rt-dag.calib
+    TICKS_PER_US=$(grep "export" /tmp/rt-dag.calib | cut -d '=' -f2 | cut -d "'" -f1 | average)
+    echo "export TICKS_PER_US='$TICKS_PER_US'"
+    freq_max_all
 }
 
 (
     set -e
 
-    cpu="$1"
-    duration_us="$2"
-
-    if [ -z "$cpu" ]; then
-        echo "Missing cpu argument" >&2
-        usage >&2
-        false
-    fi
-
-    if [ -z "$duration_us" ] ; then
-        echo "Missing duration_us argument" >&2
-        usage >&2
-        false
-    fi
-
-    max_all_freqs
-
-    echo "DEBUG: TICKS_PER_US=$TICKS_PER_US" >&2
-
-    for i in $(seq 1 1000); do
-        taskset -c 4 chrt -f 99 ./build/rt_dag -c "$duration_us"
-    done > /tmp/rt-dag.calib
-
-    TICKS_PER_US=$(grep export /tmp/rt-dag.calib | cut -d '=' -f2 | cut -d "'" -f1 | average)
-    echo "AVERAGE: $TICKS_PER_US"
-    TICKS_PER_US=$(echo "$TICKS_PER_US * 0.9" | bc -l)
-
-    echo "However, for safety reasons, use instead:"
-    echo "export TICKS_PER_US='${TICKS_PER_US}'"
-    export TICKS_PER_US
-
-    max_all_freqs
+    main "$@"
 )
