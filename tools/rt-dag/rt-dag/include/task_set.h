@@ -404,9 +404,17 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   LOG(INFO,"task %s: running on the CPU \n", task_name);
 
-  // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
-  LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
-  set_sched_deadline(task.wcet, task.deadline, task.deadline);
+  // NOTE: The task.runtime parameter is the runtime scaled down according to
+  // our task frequency scaling model, so we should use that parameter as
+  // follows and use the WCET only for the runtime scaling.
+  LOG(DEBUG,"task %s: sched runtime %lu, dline %lu\n", task_name, task.runtime, task.deadline);
+  // set_sched_deadline(task.runtime, task.deadline, task.deadline);
+
+  // To be on the safe however we will use the deadline for both the period and
+  // the runtime, so that we get a pure EDF scheduler of implicit deadline tasks
+  // (even if per our implementation the actual period of the tasks is greater).
+  LOG(DEBUG, "task %s: using the dline as runtime (pure EDF, no CBS)\n", task_name);
+  set_sched_deadline(task.deadline, task.deadline, task.deadline);
 
   // period definitions - used only by the starting task
   struct period_info pinfo;
