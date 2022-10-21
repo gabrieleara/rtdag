@@ -699,8 +699,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         sa.sched_runtime  = runtime;
         sa.sched_deadline = deadline;
         sa.sched_period   = period;
-        if (sched_setattr( 0, &sa, 0) < 0)
-        {
+
+#define SCHED_FLAG_RESET_ON_FORK 0x01
+#define SCHED_FLAG_RECLAIM 0x02
+#define SCHED_FLAG_DL_OVERRUN 0x04
+
+        // sa.sched_flags |= SCHED_FLAG_RECLAIM;
+        if (sched_setattr(0, &sa, 0) < 0) {
             perror("ERROR sched_setattr()");
             printf("ERROR: make sure you run rt-dag with 'sudo' and also 'echo -1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us' is executed before running rt-dag\n");
             exit(1);

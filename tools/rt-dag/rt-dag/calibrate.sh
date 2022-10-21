@@ -55,6 +55,7 @@ function main() {
     TICKS_PER_US=$(grep "export" /tmp/rt-dag.calib | cut -d '=' -f2 | cut -d "'" -f1 | average)
     echo "export TICKS_PER_US='$TICKS_PER_US'"
     freq_max_all
+    echo "Calibration step done" >&2
 }
 
 (
