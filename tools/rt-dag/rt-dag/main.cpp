@@ -244,6 +244,17 @@ Where OPTION can be (only) one of the following:
 If no OPTION is supplied, a DAG is run. The input mode for specifying the DAG
 information is: %s.
 
+The exception to the above rule is the following OPTION, which will instead
+affect only runs that specify a DAG file:
+
+    -e RATIO, --expected RATIO
+
+The RATIO parameter is a float that shall be greater than 0 and less than or
+equal to 1.0. It is used to compute the actual runtime of a task (in a
+frequency-independent way) as a fraction of its WCET.
+This OPTION must come BEFORE the DAG definition filename, if the input mode
+compiled against this program requires one.
+
 )STRING";
     printf(usage_format, program_name,
     #if INPUT_TYPE != 0
@@ -266,22 +277,95 @@ struct opts {
     command_action action = command_action::RUN_DAG;
     string in_fname = "";
     uint64_t duration_us = 0;
+    float expected_wcet_ratio = 0;
     int exit_code = EXIT_SUCCESS;
 };
 
-struct test_duration_result {
-    bool valid = true;
-    uint64_t duration;
+struct nullopt_t {
+    struct init {};
+    nullopt_t(init) {}
+};
+const nullopt_t nullopt = nullopt_t(nullopt_t::init());
+
+// Dummy version of std::optional for C++ version less than C++17. Does NOT
+// handle all the things that std::optional does. Tested only on primitive
+// types.
+//
+// Type CANNOT be a reference, but it is not tested in the code.
+template <class Type>
+class optional {
+    bool valid;
+
+    // NOTE: this element will 99% default initialized when the optional is
+    // invalid! The solution would be to use an union (etc.etc.), but we don't
+    // need it for this project. (One could argue we don't need this class but
+    // whatever.)
+    Type value;
+
+public:
+    optional() : valid(false) {}
+
+    // Implicit conversion from any nullopt value to empty optional
+    optional(nullopt_t) : valid(false) {}
+
+    // Copy and move constructors and operators, necessary, otherwise it will
+    // falsely use one of the other constructors when copying/moving
+    optional<Type>(const optional<Type> &rhs) = default;
+    optional<Type>(optional<Type> &&rhs) = default;
+    optional<Type>& operator=(const optional<Type> &rhs) = default;
+    optional<Type>& operator=(optional<Type> &&rhs) = default;
+
+    // Copy from Type
+    explicit constexpr optional(const Type &v) : valid(true), value(v) {}
+
+    // Move from Type
+    explicit constexpr optional(Type &&v) : valid(true), value(std::move(v)) {}
+
+    // Construction from the arguments of the underlying type
+    template <class... Args>
+    explicit optional(Args &&...args) :
+        valid(true), value(std::forward<Args>(args)...) {}
+
+    // Construction from initializer list (+ optional arguments)
+    template <class U, class... Args>
+    explicit optional(std::initializer_list<U> il, Args &&...args) :
+        valid(true), value(il, std::forward<Args>(args)...) {}
+
+    // Destructor
+    ~optional() {
+        if (valid) {
+            value.Type::~Type();
+        }
+    }
+
+    // Conversion to bool returns whether the optional is empty
+    explicit operator bool() const {
+        return valid;
+    }
+
+    // Operator * returns the original value
+    Type operator*() {
+        if (!valid)
+            throw std::runtime_error("Attempt accessing an empty optional!");
+        return value;
+    }
+
+    Type* operator->() {
+        if (!valid)
+            throw std::runtime_error("Attempt accessing an empty optional!");
+        return &value;
+    }
 };
 
-test_duration_result parse_test_duration(const char* duration) {
-    auto mstring = std::string(duration);
+template<class ReturnType>
+optional<ReturnType> parse_argument_from_string(const char *str) {
+    auto mstring = std::string(str);
     auto mstream = std::istringstream(mstring);
 
-    test_duration_result res;
-    mstream >> res.duration;
-    res.valid = bool(mstream);
-    return res;
+    ReturnType rt;
+    mstream >> rt;
+
+    return mstream ? optional<ReturnType>(rt) : nullopt;
 }
 
 opts parse_args(int argc, char *argv[]) {
@@ -289,18 +373,16 @@ opts parse_args(int argc, char *argv[]) {
     while (true) {
         int option_index = 0;
         static struct option long_options[] = {
-            {"help", no_argument, 0, 'h' },
-            {"calibrate", required_argument, 0, 'c' },
-            {"test", required_argument, 0, 't' },
-            {0, 0, 0, 0}
-        };
+            {"help", no_argument, 0, 'h'},
+            {"calibrate", required_argument, 0, 'c'},
+            {"test", required_argument, 0, 't'},
+            {"expected", required_argument, 0, 'e'},
+            {0, 0, 0, 0}};
 
-        int c = getopt_long(argc, argv, "hc:t:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hc:t:e:", long_options, &option_index);
         if (c == -1) {
             break;
         }
-
-        test_duration_result duration_res;
 
         switch(c) {
             case 0:
@@ -313,20 +395,47 @@ opts parse_args(int argc, char *argv[]) {
                 program_options.action = command_action::HELP;
                 goto end;
             case 'c':
-            case 't':
-                duration_res = parse_test_duration(optarg);
-                if (!duration_res.valid) {
-                    fprintf(stderr, "Invalid argument to option: %s\n", optarg);
-                    program_options.action = command_action::HELP;
-                    program_options.exit_code = EXIT_FAILURE;
+            case 't': {
+                auto duration_valid = parse_argument_from_string<uint64_t>(optarg);
+                if (!duration_valid) {
+                    goto duration_error;
+                }
+                program_options.duration_us = *duration_valid;
+                program_options.action = c == 'c' ? command_action::CALIBRATE : command_action::TEST;
+
+                if (program_options.duration_us > 0.0) {
                     goto end;
                 }
 
-                program_options.duration_us = duration_res.duration;
-                program_options.action = c == 'c' ? command_action::CALIBRATE : command_action::TEST;
+            duration_error:
+                fprintf(stderr, "Invalid argument to option: %s\n", optarg);
+                program_options.action = command_action::HELP;
+                program_options.exit_code = EXIT_FAILURE;
                 goto end;
+            }
+            case 'e': {
+                auto expected_valid = parse_argument_from_string<float>(optarg);
+                if (!expected_valid) {
+                    goto expected_error;
+                }
+
+                program_options.expected_wcet_ratio = *expected_valid;
+                if (program_options.expected_wcet_ratio < 0.0 ||
+                    program_options.expected_wcet_ratio > 1.0) {
+                    goto expected_error;
+                }
+
+                break;
+
+            expected_error:
+                fprintf(stderr, "Invalid argument to option: %s\n", optarg);
+                program_options.action = command_action::HELP;
+                program_options.exit_code = EXIT_FAILURE;
+                goto end;
+            }
             case '?':
-                // fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n", c);
+                // fprintf(stderr, "Error: ?? getopt returned character code
+                // 0%o ??\n", c);
                 program_options.action = command_action::HELP;
                 program_options.exit_code = EXIT_FAILURE;
                 goto end;
@@ -369,12 +478,15 @@ end:
 // ║                                   Main                                    ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-int main(int argc, char* argv[]) {
+float expected_wcet_ratio_override = 0.0;
+
+int main(int argc, char *argv[]) {
     // signal(SIGKILL,exit_all);
     // signal(SIGSEGV,exit_all);
     // signal(SIGINT,exit_all);
 
     auto program_options = parse_args(argc, argv);
+    expected_wcet_ratio_override = program_options.expected_wcet_ratio;
 
     switch (program_options.action) {
     case command_action::HELP:

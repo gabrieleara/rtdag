@@ -35,6 +35,8 @@
 
 #include "input_wrapper.h"
 
+extern float expected_wcet_ratio_override;
+
 #ifdef USE_FRED
 #include "fred_lib.h"
 typedef uint64_t data_t;
@@ -345,12 +347,17 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 // This is the main method that actually implements the task behaviour. It reads its inputs
 // execute some dummy processing in busi-wait, and sends its outputs to the next tasks.
 // 'period_ns' argument is only used when the task is periodic, which is tipically only the first tasks of the DAG
-static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0){
+static void task_creator(unsigned seed, const char * dag_name, const task_type& task, const unsigned hyperperiod_iters, const unsigned long dag_deadline_us, const unsigned long period_us=0, float expected_wcet_ratio=0.95f){
   char task_name[32];
   strcpy(task_name, task.name.c_str());
   assert((period_us != 0 && period_us>task.wcet) || period_us == 0);
   // 'seed' passed in case one needs to add some randomization in the execution time
   (void) seed;
+
+  // Command-line option supersedes specification in input file
+  if (expected_wcet_ratio_override > 0.0) {
+      expected_wcet_ratio = expected_wcet_ratio_override;
+  }
 
   // sched_deadline does not support tasks shorter than 1024 ns
   if (task.wcet <= 1){
@@ -473,7 +480,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
         }
 
-        unsigned long wcet = ((float)task.wcet)*0.95f;
+        unsigned long wcet = ((float)task.wcet) * expected_wcet_ratio;
         LOG(INFO,"task %s (%u): running the processing step\n", task_name, iter);
         // the task execution time does not account for the time to receive/send data
         task_start_time = (unsigned long) micros();
@@ -578,6 +585,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
     void thread_launcher(unsigned seed){
         vector<std::thread> threads;
         unsigned long thread_id;
+        // this represents how much of the WCET we want the task to run for
+        const float task_expected_wcet_ratio = input->get_expected_wcet_ratio();
         // this represents how many times this dag must repeat to reach the hyperperiod
         // this is only relevant when running multidag scenarios. otherwise, hyperperiod_iters == 1
         const unsigned hyperperiod_iters = input->get_hyperperiod() / input->get_period();
@@ -588,13 +597,13 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
             fprintf(stderr, "ERROR: both the 1st and the last tasks must be running on a CPU \n");
             exit(1);
         }
-        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], total_iterations, input->get_deadline(), input->get_period()));
+        threads.push_back(thread(task_creator,seed, input->get_dagset_name(), tasks[0], total_iterations, input->get_deadline(), input->get_period(), task_expected_wcet_ratio));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO,"[main] pid %d task 0\n", getpid());
         for (unsigned i = 1; i < input->get_n_tasks(); i++) {
             if (tasks[i].type == "cpu"){
-                threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
+                threads.push_back(std::thread(task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0, task_expected_wcet_ratio));
             }else if (tasks[i].type == "fred"){
                 threads.push_back(std::thread(fred_task_creator, seed, input->get_dagset_name(), tasks[i], total_iterations, input->get_deadline(), 0));
             // place holder for the OpenCL task
@@ -661,7 +670,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         }
         if (pid == 0){
             printf("Task %s pid %d forked\n",task.name.c_str(),getpid());
-            task_creator(seed, input->get_dagset_name(), task, input->get_repetitions(), input->get_deadline(), period);
+            task_creator(seed, input->get_dagset_name(), task, input->get_repetitions(), input->get_deadline(), period, expected_wcet_ratio);
             exit(0);
         }else{
             pid_list->push_back(pid);
