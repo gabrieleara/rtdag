@@ -114,6 +114,18 @@ message(STATUS "Count tick enabled: ${ENABLE_COUNT_TICK}")
 #    add_definitions(-DENABLE_DAG_DEADLINE_CHECK)
 #ENDIF(ENABLE_DAG_DEADLINE_CHECK)
 
+find_library(OpenCL
+  NAMES libOpenCL libOpenCL.so.1
+  HINTS /usr/lib /usr/lib64
+)
+
+if(OpenCL)
+    message(STATUS "OpenCL library found")
+    add_definitions(-DUSE_OPENCL)
+else()
+    message(STATUS "OpenCL library NOT found")
+endif()
+
 ##############
 # when running in a Xilinx Ultrascale board, check whether FRED lig is installed
 ##############
@@ -193,4 +205,8 @@ target_link_libraries(rt_dag
 
 if(LIBFRED)
   target_link_libraries(rt_dag fred)
+endif()
+
+if (OpenCL)
+  target_link_libraries(rt_dag ${OpenCL})
 endif()
