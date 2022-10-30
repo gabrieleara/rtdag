@@ -486,6 +486,10 @@ int main(int argc, char *argv[]) {
     // signal(SIGSEGV,exit_all);
     // signal(SIGINT,exit_all);
 
+    // auto functor = functor_factory("OpenCL");
+    // if (functor == nullptr)
+    //     return EXIT_FAILURE;
+
     auto program_options = parse_args(argc, argv);
     expected_wcet_ratio_override = program_options.expected_wcet_ratio;
 

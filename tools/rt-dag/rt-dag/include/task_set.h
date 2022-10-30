@@ -356,6 +356,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // 'seed' passed in case one needs to add some randomization in the execution time
   (void) seed;
 
+  pthread_setname_np(pthread_self(), task_name);
+
   // Command-line option supersedes specification in input file
   if (expected_wcet_ratio_override > 0.0) {
       expected_wcet_ratio = expected_wcet_ratio_override;
@@ -491,6 +493,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
         // runs busy waiting to mimic some actual processing.
         // using sleep or wait wont achieve the same result, for instance, in power consumption
 #ifdef USE_COUNT_TICK
+        // fprintf(stderr, "%s %ld\n", task_name, wcet);
         Count_Time_Ticks(wcet);
 #else
         Count_Time(wcet);
