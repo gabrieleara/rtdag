@@ -138,6 +138,7 @@ int run_dag(string in_fname) {
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 #ifdef USE_COMPILER_BARRIER
+// It tells the compiler to not reorder instructions around it 
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 #else
 #define COMPILER_BARRIER()
