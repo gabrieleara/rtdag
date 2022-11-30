@@ -70,7 +70,7 @@ typedef struct {
     string name;
     string type; // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are implemented
     int fred_id; // positive integer >= 100 that indicates the specific IP that must be run on the FPGA
-    unsigned affinity;          // which core the task is mapped
+    int affinity;          // which core the task is mapped. negative value means that the task is not pinned
     unsigned long wcet;         // in us
     unsigned long runtime;      // in us. this is the task execution time assuming the ref island at top freq
     unsigned long deadline;     // in us
@@ -250,7 +250,9 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 
     // set task affinity
     LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
-    pin_to_core(task.affinity);
+    if (task.affinity >= 0){
+        pin_to_core(task.affinity);
+    }
 
     // make sure the buffers are cleaned, otherwise assertion error will popup when ENABLE_MEM_ACCESS is disabled
     for(int i=0;i<(int)task.in_buffers.size();++i){
@@ -370,8 +372,9 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   // set task affinity
   LOG(DEBUG,"task %s: affinity %d\n", task_name, task.affinity);
-  pin_to_core(task.affinity);
-
+  if (task.affinity >= 0){
+    pin_to_core(task.affinity);
+  }
 
   // make sure the buffers are cleaned, otherwise assertion error will popup when ENABLE_MEM_ACCESS is disabled
   for(int i=0;i<(int)task.in_buffers.size();++i){
@@ -440,7 +443,8 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
 
   if (task.in_buffers.size() == 0){
       // 1st DAG task waits 100ms to make sure its in-kernel CBS deadline is aligned with the abs deadline in pinfo
-      LOG(DEBUG, "waiting 100ms\n");
+      // "" is used only to avoid variadic macro warning
+      LOG(DEBUG, "waiting 100ms%s\n","");
       pinfo_sum_and_wait(&pinfo, 100*1000*1000);
       LOG(DEBUG, "woken up: pinfo.next_period: %ld %ld\n", pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
   }

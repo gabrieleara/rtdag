@@ -127,8 +127,8 @@ int run_dag(string in_fname) {
 
   // pass pid_list such that tasks can be killed with CTRL+C
   task_set.launch_tasks(&pid_list,seed);
-
-  LOG(INFO,"[main] all tasks were finished ...\n");
+  // "" is used only to avoid variadic macro warning
+  LOG(INFO,"[main] all tasks were finished%s...\n"," ");
 
   return 0;
 }

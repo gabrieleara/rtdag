@@ -72,7 +72,7 @@ public:
     unsigned long get_tasks_runtime(unsigned t) const override { return inputs["tasks_runtime"][t].as<unsigned long>();}
     unsigned long get_tasks_wcet(unsigned t) const override { return inputs["tasks_wcet"][t].as<unsigned long>();}
     unsigned long get_tasks_rel_deadline(unsigned t) const override { return inputs["tasks_rel_deadline"][t].as<unsigned long>();}
-    unsigned  get_tasks_affinity(unsigned t) const override { return inputs["tasks_affinity"][t].as<unsigned>();}
+    unsigned  get_tasks_affinity(unsigned t) const override { return inputs["tasks_affinity"][t].as<int>();}
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const override { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
     float get_expected_wcet_ratio() const override { return inputs["expected_wcet_ratio"].as<float>(1.0f);}
 };
