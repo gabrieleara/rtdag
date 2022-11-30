@@ -36,7 +36,7 @@ public:
     const char *    get_tasks_name(unsigned t) const override { return tasks_name[t];}
     unsigned long  get_tasks_wcet(unsigned t) const override { return tasks_wcet[t];}
     unsigned long  get_tasks_rel_deadline(unsigned t) const{ return tasks_rel_deadline[t];}
-    unsigned  get_tasks_affinity(unsigned t) const override { return task_affinity[t];}
+    int  get_tasks_affinity(unsigned t) const override { return task_affinity[t];}
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const override { return adjacency_matrix[t1][t2];}
 };
 

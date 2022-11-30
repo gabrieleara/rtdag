@@ -54,7 +54,7 @@ public:
     virtual unsigned long get_tasks_runtime(unsigned t) const = 0;
     virtual unsigned long get_tasks_wcet(unsigned t) const = 0;
     virtual unsigned long get_tasks_rel_deadline(unsigned t) const = 0;
-    virtual unsigned get_tasks_affinity(unsigned t) const = 0;
+    virtual int get_tasks_affinity(unsigned t) const = 0;
     virtual unsigned get_adjacency_matrix(unsigned t1, unsigned t2) const = 0;
     virtual float get_expected_wcet_ratio() const = 0;
 };
