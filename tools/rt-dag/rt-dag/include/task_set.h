@@ -288,9 +288,21 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     }
     LOG(INFO,"task %s: running FRED \n", task_name);
 
-    // set the SCHED_DEADLINE policy for this task, using task.wcet as runtime and task.deadline as both deadline and period
-    LOG(DEBUG,"task %s: sched wcet %lu, dline %lu\n", task_name, task.wcet, task.deadline);
-    set_sched_deadline(task.wcet, task.deadline, task.deadline);
+    // (Potentially) Avoid cost of reconfiguration during first run
+    retval = fred_accel(fred, hw_ip);
+    if (retval) {
+        fprintf(stderr, "ERROR: fred_accel failed\n");
+        exit(1);
+    }
+
+    struct sched_param priority;
+    priority.sched_priority = 2;
+    int sched_ret = sched_setscheduler(gettid(), SCHED_FIFO, &priority);
+    if (sched_ret < 0) {
+        fprintf(stderr, "ERROR: unable to set fifo priority: %s\n",
+               strerror(errno));
+        exit(1);
+    }
 
     #if TASK_IMPL == 0
         // wait for all threads in the DAG to have been started up to this point
