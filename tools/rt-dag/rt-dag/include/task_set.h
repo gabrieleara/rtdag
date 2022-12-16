@@ -170,15 +170,23 @@ public:
             // only the DAG sink should use this, but you never know...
             tasks[i].dag_resp_times = dag_resp_times;
         }
-        int fd = open("/proc/sys/kernel/sched_rt_runtime_us", O_WRONLY);
+        int fd = open("/proc/sys/kernel/sched_rt_runtime_us", O_RDWR);
         if (fd == -1) {
           perror("open() failed!");
           exit(1);
         }
-        rv = write(fd, "-1\n", 3);
-        if (rv < 0) {
-          perror("write() failed!");
+        char buff[10];
+        if (read(fd,&buff,2) == -1) {
+          perror("read() failed!");
           exit(1);
+        }        
+        buff[2]=0;
+        if (strcmp(buff,"-1") != 0){
+            rv = write(fd, "-1\n", 3);
+            if (rv < 0) {
+                perror("write() failed!");
+                exit(1);
+            }
         }
         close(fd);
     }
