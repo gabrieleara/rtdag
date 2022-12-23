@@ -251,6 +251,8 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
     char task_name[32];
     strcpy(task_name, task.name.c_str());
 
+    pthread_setname_np(pthread_self(), task_name);
+
     // fred task ids starts with 100
     assert(task.fred_id >= 100);
 
@@ -305,6 +307,22 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         exit(1);
     }
 
+#ifndef NDEBUG
+  // file to save the task execution time in debug mode
+  ofstream exec_time_f;
+  string exec_time_fname = dag_name;
+  exec_time_fname += "/";
+  exec_time_fname += task.name;
+  exec_time_fname += ".log";
+  exec_time_f.open(exec_time_fname, std::ios_base::app);
+  if (! exec_time_f.is_open()){
+      printf("ERROR: execution time '%s' file not created\n", exec_time_fname.c_str());
+      exit(1);
+  }
+  // the 1st line is the task relative deadline. all the following lines are actual execution times
+  exec_time_f << task.deadline << endl;
+#endif // NDEBUG
+
     struct sched_param priority;
     priority.sched_priority = 2;
     int sched_ret = sched_setscheduler(gettid(), SCHED_FIFO, &priority);
@@ -322,7 +340,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         LOG(DEBUG, "barrier_wait() returned: %d\n", rv);
     #endif
 
-    unsigned long task_start_time;
+    unsigned long task_start_time, duration;
     for (unsigned iter=0; iter < hyperperiod_iters; ++iter){
         // wait all incomming messages
         LOG(INFO,"task %s (%u): waiting msgs\n", task_name, iter);
@@ -348,8 +366,18 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
             fprintf(stderr,"ERROR: fred_accel failed\n");
             exit(1);
         }
-        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, micros() - task_start_time);
+        duration = micros() - task_start_time;
+        LOG(INFO,"task %s (%u): task duration %lu us\n", task_name, iter, duration);
 
+        #ifndef NDEBUG
+            // write the task execution time into its log file
+            exec_time_f << duration << endl;
+            if (duration > task.deadline){
+                printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n", task_name, iter, duration, task.deadline);
+                //TODO: stop or continue ?
+            }
+        #endif // NDEBUG
+        
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
@@ -363,6 +391,9 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
         LOG(INFO,"task %s (%u): all msgs sent!\n", task_name, iter);
     }
 	//cleanup and finish
+    #ifndef NDEBUG
+    exec_time_f.close();
+    #endif // NDEBUG    
 	fred_free(fred);
 	printf("Fred finished\n");
 #endif // USE_FRED
@@ -441,7 +472,7 @@ static void task_creator(unsigned seed, const char * dag_name, const task_type& 
   // NOTE: The task.runtime parameter is the runtime scaled down according to
   // our task frequency scaling model, so we should use that parameter as
   // follows and use the WCET only for the runtime scaling.
-  LOG(DEBUG,"task %s: sched runtime %lu, dline %lu\n", task_name, task.runtime, task.deadline);
+  // LOG(DEBUG,"task %s: sched runtime %lu, dline %lu\n", task_name, task.runtime, task.deadline);
   // set_sched_deadline(task.runtime, task.deadline, task.deadline);
 
   // To be on the safe however we will use the deadline for both the period and
