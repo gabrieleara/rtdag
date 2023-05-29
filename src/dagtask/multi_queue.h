@@ -1,6 +1,8 @@
 #ifndef __MULTI_QUEUE_H__
 #define __MULTI_QUEUE_H__
 
+#include <cassert>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

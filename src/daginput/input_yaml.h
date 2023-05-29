@@ -75,6 +75,9 @@ public:
     int  get_tasks_affinity(unsigned t) const override { return inputs["tasks_affinity"][t].as<int>();}
     unsigned  get_adjacency_matrix(unsigned t1,unsigned t2) const override { return inputs["adjacency_matrix"][t1][t2].as<unsigned>();}
     float get_expected_wcet_ratio() const override { return inputs["expected_wcet_ratio"].as<float>(1.0f);}
+
+public:
+    static constexpr bool has_input_file = true;
 };
 
 #endif // INPUT_YAML_H_

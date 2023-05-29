@@ -1,0 +1,23 @@
+#ifndef RTDAG_CONFIG_H
+#define RTDAG_CONFIG_H
+
+// Boolean Options
+#cmakedefine CONFIG_COMPILER_BARRIER
+#cmakedefine CONFIG_MEM_ACCESS
+#cmakedefine CONFIG_COUNT_TICK
+
+// Library Dependency Options
+#cmakedefine CONFIG_OPENCL_USE
+#cmakedefine CONFIG_FRED_USE
+
+// Integer options
+#define CONFIG_LOG_LEVEL @CONFIG_LOG_LEVEL@
+#define CONFIG_TASK_IMPL @CONFIG_TASK_IMPL_VALUE@
+#define CONFIG_INPUT_TYPE @CONFIG_INPUT_TYPE_VALUE@
+
+// For backwards compatibility
+#define LOG_LEVEL CONFIG_LOG_LEVEL
+#define TASK_IMPL CONFIG_TASK_IMPL
+#define INPUT_TYPE CONFIG_INPUT_TYPE
+
+#endif // RTDAG_CONFIG_H

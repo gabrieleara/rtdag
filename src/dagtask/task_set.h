@@ -10,6 +10,10 @@
 #ifndef TASK_SET_H_
 #define TASK_SET_H_
 
+#include <memory>
+
+#include <thread>
+
 #include <string>
 #include <vector>
 #include <iostream>
@@ -25,6 +29,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#include "logging.h"
 
 #include <periodic_task.h>
 #include <time_aux.h>
@@ -180,7 +186,7 @@ public:
         if (read(fd,&buff,2) == -1) {
           perror("read() failed!");
           exit(1);
-        }        
+        }
         buff[2]=0;
         if (strcmp(buff,"-1") != 0){
             rv = write(fd, "-1\n", 3);
@@ -377,7 +383,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
                 //TODO: stop or continue ?
             }
         #endif // NDEBUG
-        
+
         // send data to the next tasks. in release mode, the time to send msgs (when no blocking) is about 50 us
         LOG(INFO,"task %s (%u): sending msgs!\n", task_name,iter);
         for(int i=0;i<(int)task.out_buffers.size();++i){
@@ -393,7 +399,7 @@ static void fred_task_creator(unsigned seed, const char * dag_name, const task_t
 	//cleanup and finish
     #ifndef NDEBUG
     exec_time_f.close();
-    #endif // NDEBUG    
+    #endif // NDEBUG
 	fred_free(fred);
 	printf("Fred finished\n");
 #endif // USE_FRED

@@ -1,6 +1,7 @@
 
 /*
- * Description: This application tests how to build a taskset described as a DAG using threads and a thread-safe queue for communication.
+ * Description: This application tests how to build a taskset described as a DAG
+ * using threads and a thread-safe queue for communication.
  *
  * Example DAG:
  *     n1
@@ -14,52 +15,59 @@
  *
  * Assumptions:
  *  - Each task is implemented w a thread or process. Check TASK_IMPL define;
- *  - Each edge is implemented with a thread-safe queue w size limite and blocking push. Syncronous blocking communication mode.
- *  - The DAG period is lower than the DAG WCET. This way, each shared variable it's garanteed that the next element will be received only after the current one is consumed
- *  - The 'task duration' accounts for the task execution plus msgs sent. It does not account waiting time for incomming data
+ *  - Each edge is implemented with a thread-safe queue w size limite and
+ * blocking push. Syncronous blocking communication mode.
+ *  - The DAG period is lower than the DAG WCET. This way, each shared variable
+ * it's garanteed that the next element will be received only after the current
+ * one is consumed
+ *  - The 'task duration' accounts for the task execution plus msgs sent. It
+ * does not account waiting time for incomming data
  *
  * Author:
  *  Alexandre Amory (June 2022), ReTiS Lab, Scuola Sant'Anna, Pisa, Italy.
  *
  * Compilation:
- *  $> g++  main.cpp ../../../common/src/periodic_task.c ../../../common/src/time_aux.c -I ../../../common/include/ -I blocking_queue -g3 -o dag-launcher-thread -lrt -lpthread
+ *  $> g++  main.cpp ../../../common/src/periodic_task.c
+ * ../../../common/src/time_aux.c -I ../../../common/include/ -I blocking_queue
+ * -g3 -o dag-launcher-thread -lrt -lpthread
  *
  * Usage Example:
  *  $> ./dag-launcher-thread
  */
 
 #include <iostream>
+#include <random>
+#include <sstream>
+#include <string>
 #include <thread>
 #include <vector>
-#include <random>
-#include <string>
-#include <sstream>
 
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
 
-#include <sys/types.h> // to create the directory
 #include <sys/stat.h>
+#include <sys/types.h> // to create the directory
 
 #include <unistd.h> // getpid
 
 #include <getopt.h>
 
-#include <log.h>
 #include "input_wrapper.h"
+#include <logging.h>
 
-// select the input type
-#if INPUT_TYPE == 0
-    #include "input_header.h"
-    using input_type = input_header;
-    #define INPUT_TYPE_NAME "header"
-    #define INPUT_TYPE_NAME_CAPS "HEADER"
+#if CONFIG_INPUT_TYPE == 0
+#include "input_yaml.h"
+using input_type = input_yaml;
+#define INPUT_TYPE_NAME "yaml"
+#define INPUT_TYPE_NAME_CAPS "YAML"
+#elif CONFIG_INPUT_TYPE == 1
+#include "input_header.h"
+using input_type = input_header;
+#define INPUT_TYPE_NAME "header"
+#define INPUT_TYPE_NAME_CAPS "HEADER"
 #else
-    #include "input_yaml.h"
-    using input_type = input_yaml;
-    #define INPUT_TYPE_NAME "yaml"
-    #define INPUT_TYPE_NAME_CAPS "YAML"
+#error "Invalid input type" CONFIG_INPUT_TYPE
 #endif
 
 // the dag definition is here
@@ -75,16 +83,16 @@ using namespace std;
 // unsigned long dag_start_time;
 vector<int> pid_list;
 
-void exit_all([[maybe_unused]] int sigid){
+void exit_all([[maybe_unused]] int sigid) {
 #if TASK_IMPL == 0
     printf("Killing all threads\n");
     // TODO: how to kill the threads without access to the thread list ?
 #else
     printf("Killing all tasks\n");
-    unsigned i,ret;
-    for(i=0;i<pid_list.size();++i){
-        ret = kill(pid_list[i],SIGKILL);
-        assert(ret==0);
+    unsigned i, ret;
+    for (i = 0; i < pid_list.size(); ++i) {
+        ret = kill(pid_list[i], SIGKILL);
+        assert(ret == 0);
     }
 #endif
     printf("Exting\n");
@@ -94,43 +102,46 @@ void exit_all([[maybe_unused]] int sigid){
 int get_ticks_per_us(bool required);
 
 int run_dag(string in_fname) {
-  // uncomment this to get a random seed
-  //unsigned seed = time(0);
-  // or set manually a constant seed to repeat the same sequence
-  unsigned seed = 123456;
-  cout << "SEED: " << seed << endl;
+    // uncomment this to get a random seed
+    // unsigned seed = time(0);
+    // or set manually a constant seed to repeat the same sequence
+    unsigned seed = 123456;
+    cout << "SEED: " << seed << endl;
 
-  // read the dag configuration from the selected type of input
-  std::unique_ptr<input_wrapper> inputs = std::make_unique<input_type>(in_fname.c_str());
-  inputs->dump();
-  TaskSet task_set(inputs);
-  cout << "\nPrinting the input DAG: \n";
-  task_set.print();
+    // read the dag configuration from the selected type of input
+    std::unique_ptr<input_wrapper> inputs =
+        std::make_unique<input_type>(in_fname.c_str());
+    inputs->dump();
+    TaskSet task_set(inputs);
+    cout << "\nPrinting the input DAG: \n";
+    task_set.print();
 
-  // Check whether the environment contains the TICKS_PER_US variable
-  int ret = get_ticks_per_us(true);
-  if (ret) {
-    return ret;
-  }
-
-  // create the directory where execution time are saved
-  struct stat st; // This is C++, you cannot use {0} to initialize to zero an entire struct.
-  memset(&st, 0, sizeof(struct stat));
-  if (stat(task_set.get_dagset_name(), &st) == -1) {
-    // permisions required in order to allow using rsync since rt-dag is run as root in the target computer
-    int rv = mkdir(task_set.get_dagset_name(), 0777);
-    if (rv != 0) {
-        perror("ERROR creating directory");
-        exit(1);
+    // Check whether the environment contains the TICKS_PER_US variable
+    int ret = get_ticks_per_us(true);
+    if (ret) {
+        return ret;
     }
-  }
 
-  // pass pid_list such that tasks can be killed with CTRL+C
-  task_set.launch_tasks(&pid_list,seed);
-  // "" is used only to avoid variadic macro warning
-  LOG(INFO,"[main] all tasks were finished%s...\n"," ");
+    // create the directory where execution time are saved
+    struct stat st; // This is C++, you cannot use {0} to initialize to zero an
+                    // entire struct.
+    memset(&st, 0, sizeof(struct stat));
+    if (stat(task_set.get_dagset_name(), &st) == -1) {
+        // permisions required in order to allow using rsync since rt-dag is run
+        // as root in the target computer
+        int rv = mkdir(task_set.get_dagset_name(), 0777);
+        if (rv != 0) {
+            perror("ERROR creating directory");
+            exit(1);
+        }
+    }
 
-  return 0;
+    // pass pid_list such that tasks can be killed with CTRL+C
+    task_set.launch_tasks(&pid_list, seed);
+    // "" is used only to avoid variadic macro warning
+    LOG(INFO, "[main] all tasks were finished%s...\n", " ");
+
+    return 0;
 }
 
 // ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -138,7 +149,7 @@ int run_dag(string in_fname) {
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 #ifdef USE_COMPILER_BARRIER
-// It tells the compiler to not reorder instructions around it 
+// It tells the compiler to not reorder instructions around it
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 #else
 #define COMPILER_BARRIER()
@@ -149,7 +160,7 @@ int get_ticks_per_us(bool required) {
         return EXIT_SUCCESS;
     }
 
-    char* TICKS_PER_US = getenv("TICKS_PER_US");
+    char *TICKS_PER_US = getenv("TICKS_PER_US");
 
     auto &print_stream = (required) ? cerr : cout;
     auto kind = (required) ? "ERROR" : "WARN";
@@ -167,10 +178,10 @@ int get_ticks_per_us(bool required) {
         }
     }
 
-    cout << "Using the following value for time accounting: " << ticks_per_us << endl;
+    cout << "Using the following value for time accounting: " << ticks_per_us
+         << endl;
 
     return EXIT_SUCCESS;
-
 }
 
 int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
@@ -185,7 +196,7 @@ int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
     COMPILER_BARRIER();
 
     uint64_t retv = Count_Time_Ticks(duration_us);
-    (void) (retv);
+    (void)(retv);
 
     COMPILER_BARRIER();
 
@@ -214,17 +225,21 @@ int calibrate(uint64_t duration_us) {
         ticks_per_us = 10;
     }
 
-    cout << "About to calibrate for (roughly) "<< duration_us << " micros ..." << endl;
+    cout << "About to calibrate for (roughly) " << duration_us << " micros ..."
+         << endl;
 
     // Will never return an error
     test_calibration(duration_us, time_difference);
-    // fprintf(stderr, "DEBUG: %llu %llu %llu %llu\n", duration_us, time_difference, ticks_per_us, duration_us * ticks_per_us);
+    // fprintf(stderr, "DEBUG: %llu %llu %llu %llu\n", duration_us,
+    // time_difference, ticks_per_us, duration_us * ticks_per_us);
 
     using ticks_type = decltype(ticks_per_us);
 
-    ticks_per_us = ticks_type(double(duration_us * ticks_per_us) / double(time_difference));
+    ticks_per_us = ticks_type(double(duration_us * ticks_per_us) /
+                              double(time_difference));
 
-    cout << "Calibration successful, use: 'export TICKS_PER_US=" << ticks_per_us << "'" << endl;
+    cout << "Calibration successful, use: 'export TICKS_PER_US=" << ticks_per_us
+         << "'" << endl;
 
     return EXIT_SUCCESS;
 }
@@ -233,7 +248,7 @@ int calibrate(uint64_t duration_us) {
 // ║                          Command Line Arguments                           ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-void usage(char *program_name){
+void usage(char *program_name) {
     auto usage_format = R"STRING(Usage: %s [ OPTION %s]
 Developed by ReTiS Laboratory, Scuola Sant'Anna, Pisa (2022).
 
@@ -258,13 +273,13 @@ compiled against this program requires one.
 
 )STRING";
     printf(usage_format, program_name,
-    #if INPUT_TYPE != 0
-        "| <INPUT_" INPUT_TYPE_NAME_CAPS "_FILE> "
-    #else
-        ""
-    #endif
-    , INPUT_TYPE_NAME
-    );
+#if INPUT_TYPE != 0
+           "| <INPUT_" INPUT_TYPE_NAME_CAPS "_FILE> "
+#else
+           ""
+#endif
+           ,
+           INPUT_TYPE_NAME);
 }
 
 enum class command_action {
@@ -311,10 +326,10 @@ public:
 
     // Copy and move constructors and operators, necessary, otherwise it will
     // falsely use one of the other constructors when copying/moving
-    optional<Type>(const optional<Type> &rhs) = default;
-    optional<Type>(optional<Type> &&rhs) = default;
-    optional<Type>& operator=(const optional<Type> &rhs) = default;
-    optional<Type>& operator=(optional<Type> &&rhs) = default;
+    optional(const optional &rhs) = default;
+    optional(optional &&rhs) = default;
+    optional &operator=(const optional &rhs) = default;
+    optional &operator=(optional &&rhs) = default;
 
     // Copy from Type
     explicit constexpr optional(const Type &v) : valid(true), value(v) {}
@@ -351,14 +366,14 @@ public:
         return value;
     }
 
-    Type* operator->() {
+    Type *operator->() {
         if (!valid)
             throw std::runtime_error("Attempt accessing an empty optional!");
         return &value;
     }
 };
 
-template<class ReturnType>
+template <class ReturnType>
 optional<ReturnType> parse_argument_from_string(const char *str) {
     auto mstring = std::string(str);
     auto mstream = std::istringstream(mstring);
@@ -385,70 +400,74 @@ opts parse_args(int argc, char *argv[]) {
             break;
         }
 
-        switch(c) {
-            case 0:
-                // No long option has no corresponding short option
-                fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n", c);
-                program_options.exit_code = EXIT_FAILURE;
-                assert(false);
-                break;
-            case 'h':
-                program_options.action = command_action::HELP;
-                goto end;
-            case 'c':
-            case 't': {
-                auto duration_valid = parse_argument_from_string<uint64_t>(optarg);
-                if (!duration_valid) {
-                    goto duration_error;
-                }
-                program_options.duration_us = *duration_valid;
-                program_options.action = c == 'c' ? command_action::CALIBRATE : command_action::TEST;
+        switch (c) {
+        case 0:
+            // No long option has no corresponding short option
+            fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n",
+                    c);
+            program_options.exit_code = EXIT_FAILURE;
+            assert(false);
+            break;
+        case 'h':
+            program_options.action = command_action::HELP;
+            goto end;
+        case 'c':
+        case 't': {
+            auto duration_valid = parse_argument_from_string<uint64_t>(optarg);
+            if (!duration_valid) {
+                goto duration_error;
+            }
+            program_options.duration_us = *duration_valid;
+            program_options.action =
+                c == 'c' ? command_action::CALIBRATE : command_action::TEST;
 
-                if (program_options.duration_us > 0.0) {
-                    goto end;
-                }
-
-            duration_error:
-                fprintf(stderr, "Invalid argument to option: %s\n", optarg);
-                program_options.action = command_action::HELP;
-                program_options.exit_code = EXIT_FAILURE;
+            if (program_options.duration_us > 0.0) {
                 goto end;
             }
-            case 'e': {
-                auto expected_valid = parse_argument_from_string<float>(optarg);
-                if (!expected_valid) {
-                    goto expected_error;
-                }
 
-                program_options.expected_wcet_ratio = *expected_valid;
-                if (program_options.expected_wcet_ratio < 0.0 ||
-                    program_options.expected_wcet_ratio > 1.0) {
-                    goto expected_error;
-                }
-
-                break;
-
-            expected_error:
-                fprintf(stderr, "Invalid argument to option: %s\n", optarg);
-                program_options.action = command_action::HELP;
-                program_options.exit_code = EXIT_FAILURE;
-                goto end;
+        duration_error:
+            fprintf(stderr, "Invalid argument to option: %s\n", optarg);
+            program_options.action = command_action::HELP;
+            program_options.exit_code = EXIT_FAILURE;
+            goto end;
+        }
+        case 'e': {
+            auto expected_valid = parse_argument_from_string<float>(optarg);
+            if (!expected_valid) {
+                goto expected_error;
             }
-            case '?':
-                // fprintf(stderr, "Error: ?? getopt returned character code
-                // 0%o ??\n", c);
-                program_options.action = command_action::HELP;
-                program_options.exit_code = EXIT_FAILURE;
-                goto end;
-            default:
-                fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n", c);
-                program_options.exit_code = EXIT_FAILURE;
-                goto end;
+
+            program_options.expected_wcet_ratio = *expected_valid;
+            if (program_options.expected_wcet_ratio < 0.0 ||
+                program_options.expected_wcet_ratio > 1.0) {
+                goto expected_error;
+            }
+
+            break;
+
+        expected_error:
+            fprintf(stderr, "Invalid argument to option: %s\n", optarg);
+            program_options.action = command_action::HELP;
+            program_options.exit_code = EXIT_FAILURE;
+            goto end;
+        }
+        case '?':
+            // fprintf(stderr, "Error: ?? getopt returned character code
+            // 0%o ??\n", c);
+            program_options.action = command_action::HELP;
+            program_options.exit_code = EXIT_FAILURE;
+            goto end;
+        default:
+            fprintf(stderr, "Error: ?? getopt returned character code 0%o ??\n",
+                    c);
+            program_options.exit_code = EXIT_FAILURE;
+            goto end;
         }
     }
 
-  // this input format does not have an input file format.
-  // INPUT_TYPE != 0  means this is not the input_header mode, which does not have input files
+    // this input format does not have an input file format.
+    // INPUT_TYPE != 0  means this is not the input_header mode, which does not
+    // have input files
 #if INPUT_TYPE != 0
     if (optind < argc) {
         program_options.in_fname = argv[optind++];
