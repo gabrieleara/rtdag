@@ -3,23 +3,25 @@
 
 #include <cstdio>
 
-enum class logging_level {
-    NONE = 0,
-    ERROR = 1,
-    WARNING = 2,
-    INFO = 3,
-    DEBUG = 4,
-};
-
-// For backwards compatibility
-using enum logging_level;
-
-// Expects variable CONFIG_LOG_LEVEL to be set
-#ifndef CONFIG_LOG_LEVEL
-#define CONFIG_LOG_LEVEL logging_level::DEBUG
+#ifndef LOG_LEVEL_NONE
+#define LOG_LEVEL_NONE 0
+#define LOG_LEVEL_ERROR 1
+#define LOG_LEVEL_WARNING 2
+#define LOG_LEVEL_INFO 3
+#define LOG_LEVEL_DEBUG 4
 #endif
 
-constexpr logging_level THE_LOG_LEVEL{CONFIG_LOG_LEVEL};
+#ifndef CONFIG_LOG_LEVEL
+#define CONFIG_LOG_LEVEL LOG_LEVEL_DEBUG
+#endif
+
+#define NONE LOG_LEVEL_NONE
+#define ERROR LOG_LEVEL_ERROR
+#define WARNING LOG_LEVEL_WARNING
+#define INFO LOG_LEVEL_INFO
+#define DEBUG LOG_LEVEL_DEBUG
+
+#define THE_LOG_LEVEL CONFIG_LOG_LEVEL
 
 #define LOG(level, format, ...)                                                \
     do {                                                                       \

@@ -4,6 +4,7 @@
 #include "input.h"
 #include <getopt.h>
 
+#include <optional>
 #include <cassert>
 
 // ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -56,82 +57,6 @@ struct opts {
     uint64_t duration_us = 0;
     float expected_wcet_ratio = 0;
     int exit_code = EXIT_SUCCESS;
-};
-
-struct nullopt_t {
-    struct init {};
-    nullopt_t(init) {}
-};
-const nullopt_t nullopt = nullopt_t(nullopt_t::init());
-
-// Dummy version of std::optional for C++ version less than C++17. Does NOT
-// handle all the things that std::optional does. Tested only on primitive
-// types.
-//
-// Type CANNOT be a reference, but it is not tested in the code.
-template <class Type>
-class optional {
-    bool valid;
-
-    // NOTE: this element will 99% default initialized when the optional is
-    // invalid! The solution would be to use an union (etc.etc.), but we don't
-    // need it for this project. (One could argue we don't need this class but
-    // whatever.)
-    Type value;
-
-public:
-    optional() : valid(false) {}
-
-    // Implicit conversion from any nullopt value to empty optional
-    optional(nullopt_t) : valid(false) {}
-
-    // Copy and move constructors and operators, necessary, otherwise it will
-    // falsely use one of the other constructors when copying/moving
-    optional(const optional &rhs) = default;
-    optional(optional &&rhs) = default;
-    optional &operator=(const optional &rhs) = default;
-    optional &operator=(optional &&rhs) = default;
-
-    // Copy from Type
-    explicit constexpr optional(const Type &v) : valid(true), value(v) {}
-
-    // Move from Type
-    explicit constexpr optional(Type &&v) : valid(true), value(std::move(v)) {}
-
-    // Construction from the arguments of the underlying type
-    template <class... Args>
-    explicit optional(Args &&...args) :
-        valid(true), value(std::forward<Args>(args)...) {}
-
-    // Construction from initializer list (+ optional arguments)
-    template <class U, class... Args>
-    explicit optional(std::initializer_list<U> il, Args &&...args) :
-        valid(true), value(il, std::forward<Args>(args)...) {}
-
-    // Destructor
-    ~optional() {
-        if (valid) {
-            value.Type::~Type();
-        }
-    }
-
-    // Conversion to bool returns whether the optional is empty
-    explicit operator bool() const {
-        return valid;
-    }
-
-    // Operator * returns the original value
-    Type operator*() {
-        if (!valid)
-            throw std::runtime_error("Attempt accessing an empty optional!");
-        return value;
-    }
-
-    Type *operator->() {
-        if (!valid)
-            throw std::runtime_error("Attempt accessing an empty optional!");
-        return &value;
-    }
 };
 
 template <class ReturnType>

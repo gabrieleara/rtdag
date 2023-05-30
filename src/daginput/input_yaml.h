@@ -21,39 +21,39 @@ scenarios
 // TODO: get constants from somewhere else
 #define MAX_N_TASKS 32
 
-enum class error_type {
-    WARN,
-    ERROR,
+enum class yaml_error_type {
+    YAML_WARN,
+    YAML_ERROR,
 };
 
 template <class...>
 constexpr std::false_type always_false{};
 
-template <error_type error>
+template <yaml_error_type error>
 static inline constexpr const char *get_error_msg() {
-    if constexpr (error == error_type::ERROR) {
+    if constexpr (error == yaml_error_type::YAML_ERROR) {
         return "ERROR";
-    } else if constexpr (error == error_type::WARN) {
+    } else if constexpr (error == yaml_error_type::YAML_WARN) {
         return "WARN";
     } else {
-        static_assert(always_false<error>, "Unexpected error_type!");
+        static_assert(always_false<error>, "Unexpected yaml_error_type!");
     }
 
     // Should have never been taken!
 }
 
-template <error_type error>
+template <yaml_error_type error>
 static inline void exit_if_fatal_error() {
-    if constexpr (error == error_type::ERROR) {
+    if constexpr (error == yaml_error_type::YAML_ERROR) {
         std::exit(EXIT_FAILURE);
-    } else if constexpr (error == error_type::WARN) {
+    } else if constexpr (error == yaml_error_type::YAML_WARN) {
         // Do nothing
     } else {
-        static_assert(always_false<error>, "Unexpected error_type!");
+        static_assert(always_false<error>, "Unexpected yaml_error_type!");
     }
 }
 
-template <class T, error_type error = error_type::WARN>
+template <class T, yaml_error_type error = yaml_error_type::YAML_WARN>
 static inline auto get_attribute(const YAML::Node &in, const char *attr,
                                  const char *fname, T default_v = {}) {
     if (!in[attr]) {
@@ -82,7 +82,7 @@ concept has_size = requires(const T &v) {
     { v.size() } -> std::same_as<std::size_t>;
 };
 
-template <error_type error>
+template <yaml_error_type error>
 static inline void exact_length(int expected, const has_size auto &cont,
                                 const std::string &name) {
     if (expected < 0 || unsigned(expected) != cont.size()) {
@@ -179,7 +179,7 @@ public:
 
 #define M_GET_ATTR(dest, attr)                                                 \
     (dest =                                                                    \
-         get_attribute<decltype(dest), error_type::ERROR>(input, attr, fname))
+         get_attribute<decltype(dest), yaml_error_type::YAML_ERROR>(input, attr, fname))
 
         M_GET_ATTR(repetitions, "repetitions");
         M_GET_ATTR(hyperperiod, "hyperperiod");
@@ -191,7 +191,7 @@ public:
 
         int n_cpus;
         M_GET_ATTR(n_cpus, "n_cpus");
-        exact_length<error_type::WARN>(n_cpus, cpu_freqs, "cpus_freq");
+        exact_length<yaml_error_type::YAML_WARN>(n_cpus, cpu_freqs, "cpus_freq");
 
         M_GET_ATTR(dag_name, "dag_name");
         M_GET_ATTR(n_edges, "n_edges");
@@ -228,7 +228,7 @@ public:
 
 #define M_GET_TASKS_VEC(dest, attr)                                            \
     (M_GET_ATTR(dest, attr),                                                   \
-     exact_length<error_type::ERROR>(n_tasks, dest, attr), (dest))
+     exact_length<yaml_error_type::YAML_ERROR>(n_tasks, dest, attr), (dest))
 
         M_GET_TASKS_VEC(task_names, "tasks_name");
         M_GET_TASKS_VEC(task_types, "tasks_type");
@@ -240,9 +240,9 @@ public:
         M_GET_ATTR(adj_mat, "adjacency_matrix");
 
         // Check in both directions
-        exact_length<error_type::ERROR>(n_tasks, adj_mat, "adjacency_matrix");
+        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, adj_mat, "adjacency_matrix");
         for (const auto &line : adj_mat) {
-            exact_length<error_type::ERROR>(n_tasks, line, "adjacency_matrix");
+            exact_length<yaml_error_type::YAML_ERROR>(n_tasks, line, "adjacency_matrix");
         }
 
         // FIXME: fred_ids

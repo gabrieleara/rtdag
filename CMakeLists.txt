@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 # Choice-based features
 add_option_choice_force(CMAKE_BUILD_TYPE "Release" "Debug;Release;MinSizeRel;RelWithDebInfo" "Select type of build")
-add_option_choice(CONFIG_LOG_LEVEL 0 "0;1;2;3;4" "Logger verbosity level (0 = no logging, 4 = DEBUG)")
+add_option_numbered_choice(CONFIG_LOG_LEVEL "none" "none;error;warning;info;debug" "Logger verbosity level")
 add_option_numbered_choice(CONFIG_TASK_IMPL "thread" "thread;process" "How the task is implemented (either a thread or a process)")
 add_option_numbered_choice(CONFIG_INPUT_TYPE "yaml" "yaml;header" "How rtdag task configuration is provided")
 
@@ -75,7 +75,7 @@ add_definitions(-include ${CMAKE_CURRENT_BINARY_DIR}/rtdag_config.h)
 # Print all configuration variables
 message(STATUS "---------- CONFIGURATION OPTIONS ---------- ")
 message(STATUS "CMAKE_BUILD_TYPE            ${CMAKE_BUILD_TYPE}")
-message(STATUS "CONFIG_LOG_LEVEL            ${CONFIG_LOG_LEVEL}")
+message(STATUS "CONFIG_LOG_LEVEL            ${CONFIG_LOG_LEVEL} (${CONFIG_LOG_LEVEL_VALUE})")
 message(STATUS "CONFIG_TASK_IMPL            ${CONFIG_TASK_IMPL} (${CONFIG_TASK_IMPL_VALUE})")
 message(STATUS "CONFIG_INPUT_TYPE           ${CONFIG_INPUT_TYPE} (${CONFIG_INPUT_TYPE_VALUE})")
 message(STATUS "CONFIG_COMPILER_BARRIER     ${CONFIG_COMPILER_BARRIER}")
