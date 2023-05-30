@@ -1,0 +1,127 @@
+# RTDAG, a real-time DAG emulator
+
+RTDAG is an application that given a real-time DAG description launches a
+set of Linux threads (or processes) that emulate the behavior of the DAG.
+
+The application can be used to test the execution of applications with
+end-to-end (DAG) deadline requirements periodically. Multiple instances of
+RTDAG can be executed in parallel, to test even multi-DAG scenarios.
+
+## QUICK LAUNCH :rocket:
+
+### Building
+
+Quickest way you can get it up and running:
+
+```bash
+cmake -S . -B ./build # Configuration step
+cmake --build ./build # Build step
+```
+
+That's it, you now can find in `./build/bin/rtdag` the final binary.
+
+### Running
+
+> TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+> TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+> TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+> TODO
+
+## Cross Compiling
+
+This project supports cross-compilation for ElinOS projects. To cross
+compile, you have to source your `ELINOS.sh` configuration file first, and
+then you have to specify the following toolchain file like so:
+
+```bash
+source elinos_project_path/ELINOS.sh
+cmake -S. -B ./build-cross -DCMAKE_TOOLCHAIN_FILE=./toolchains/elinos.cmake
+cmake --build ./build-cross # Build normally
+```
+
+You will see that during the configuration phase CMake will log that it
+found the cross-compiler to use for later.
+
+You can then copy the binary to your ElinOS installation. All dependencies
+(apart pthread/libc++ libraries) are re-built from sources and statically
+linked to the final binary, so you do not have to worry about anything.
+
+> **NOTE**: The optional dependency to OpenCL is not tested with
+> cross-compilation (or in general). If you do need to test real-time DAGs
+> running OpenCL applications do it at your own risk.
+
+## Customizing RTDAG behavior and selecting features
+
+There are several options that you can customize in the configuration step.
+Default values should be fine for running the application in "release" mode
+using CPU-only tasks. During the configuration phase, CMake will print the
+configuration options for you, like this:
+
+```txt
+$ cmake -S . -B ./build
+-- [...]
+-- ---------- CONFIGURATION OPTIONS ----------
+-- CMAKE_BUILD_TYPE            Release
+-- CONFIG_LOG_LEVEL            none (0)
+-- CONFIG_TASK_IMPL            thread (0)
+-- CONFIG_INPUT_TYPE           yaml (0)
+-- CONFIG_COMPILER_BARRIER     ON
+-- CONFIG_MEM_ACCESS           OFF
+-- CONFIG_COUNT_TICK           ON
+-- CONFIG_OPENCL_USE           OFF
+-- CONFIG_FRED_USE             OFF
+-- CONFIG_OPENCL_REQUIRED      OFF
+-- CONFIG_FRED_REQUIRED        OFF
+-- LIBRARY OpenCL NOT FOUND!
+-- LIBRARY Fred NOT FOUND!
+-- -------------------------------------------
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/xxx/rtdag/build
+```
+
+Any of the displayed options can be changed by passing it as argument to
+`cmake`, like so:
+
+```txt
+$ cmake -S . -B ./build -DCONFIG_MEM_ACCESS=ON
+-- [...]
+-- ---------- CONFIGURATION OPTIONS ----------
+-- [...]
+-- CONFIG_MEM_ACCESS           ON
+-- [...]
+-- -------------------------------------------
+-- Configuring done (2.6s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/xxx/rtdag/build
+```
+
+> **NOTE**: If you are re-configuring, either delete the original build
+> directory or run `cmake` with `--fresh` (if supported on your platform,
+> CMake version >= 3.24), otherwise it will NOT force a re-configuration
+> and it may keep the old values as they are.
+
+> **NOTE**: All these options are technically compatible with cross
+> compilation, except with OpenCL and Fred ones, which are not tested yet.
+
+## Authors
+
+ - Tommaso Cucinotta (June 2022 - November 2022)
+ - Alexandre Amory (June 2022 - November 2022)
+ - Gabriele Ara (September 2022 - June 2023)
+
+ [Real-Time Systems Laboratory (ReTiS Lab)][retis], [Scuola Superiore
+ Sant'Anna (SSSA)][sssup], Pisa, Italy.
+
+## Funding
+
+This software package has been developed in the context of the [AMPERE
+project](https://ampere-euproject.eu/). This project has received funding
+from the European Union’s Horizon 2020 research and innovation programme
+under grant agreement No 871669.
+
+
+<!-- Links -->
+
+[retis]: https://retis.santannapisa.it/
+[sssup]: https://www.santannapisa.it/

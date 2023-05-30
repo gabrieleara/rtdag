@@ -8,7 +8,7 @@ else()
 endif()
 
 # the name of the target operating system
-set(CMAKE_SYSTEM_NAME Xilinx-ElinOS)
+set(CMAKE_SYSTEM_NAME ElinOS)
 
 # C/CXX Compilers
 set(CMAKE_C_COMPILER $ENV{CC})
