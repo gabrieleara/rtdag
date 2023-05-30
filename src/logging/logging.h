@@ -3,13 +3,6 @@
 
 #include <cstdio>
 
-#if __has_include(<fmt/printf.h>)
-#include <fmt/printf.h>
-#define PRINT_FCN fmt::printf
-#else
-#define PRINT_FCN std::printf
-#endif
-
 enum class logging_level {
     NONE = 0,
     ERROR = 1,
@@ -31,8 +24,8 @@ constexpr logging_level THE_LOG_LEVEL{CONFIG_LOG_LEVEL};
 #define LOG(level, format, ...)                                                \
     do {                                                                       \
         if constexpr (level <= THE_LOG_LEVEL) {                                \
-            PRINT_FCN("[%7s] %s:%d: %s(): " format "\n", #level, __FILE__,     \
-                      __LINE__, __func__, ##__VA_ARGS__);                      \
+            std::printf("[%7s] %s:%d: %s(): " format "\n", #level, __FILE__,   \
+                        __LINE__, __func__, ##__VA_ARGS__);                    \
         }                                                                      \
     } while (0)
 
@@ -45,7 +38,7 @@ constexpr logging_level THE_LOG_LEVEL{CONFIG_LOG_LEVEL};
 #define check(cond, format, ...)                                               \
     do {                                                                       \
         if (!(cond)) {                                                         \
-            PRINT_FCN("ERROR: " format "\n", ##__VA_ARGS__);                   \
+            std::printf("ERROR: " format "\n", ##__VA_ARGS__);                 \
             std::exit(1);                                                      \
         }                                                                      \
     } while (0)

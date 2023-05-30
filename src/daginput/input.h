@@ -4,9 +4,6 @@
 
 #include "input_base.h"
 
-#define INPUT_TYPE_YAML 0
-#define INPUT_TYPE_HEADER 1
-
 #if CONFIG_INPUT_TYPE == INPUT_TYPE_YAML
 
 #include "input_yaml.h"

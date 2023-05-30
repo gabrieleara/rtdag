@@ -23,7 +23,7 @@ public:
     virtual unsigned long get_hyperperiod() const = 0;
     virtual const char *get_tasks_name(unsigned t) const = 0;
     virtual const char *get_tasks_type(unsigned t) const = 0;
-#ifdef CONFIG_FRED_USE
+#if CONFIG_FRED_USE == ON
     virtual int get_fred_id(unsigned t) const = 0;
 #endif
     virtual unsigned long get_tasks_runtime(unsigned t) const = 0;

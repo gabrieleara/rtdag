@@ -17,7 +17,7 @@ using namespace std;
 vector<int> pid_list;
 
 void exit_all([[maybe_unused]] int sigid) {
-#if TASK_IMPL == 0
+#if TASK_IMPL == TASK_IMPL_THREAD
     printf("Killing all threads\n");
     // TODO: how to kill the threads without access to the thread list ?
 #else
@@ -42,9 +42,9 @@ int run_dag(string in_fname) {
     cout << "SEED: " << seed << endl;
 
     // read the dag configuration from the selected type of input
-    std::unique_ptr<input_wrapper> inputs =
+    std::unique_ptr<input_base> inputs =
         std::make_unique<input_type>(in_fname.c_str());
-    inputs->dump();
+    dump(*inputs);
     TaskSet task_set(inputs);
     cout << "\nPrinting the input DAG: \n";
     task_set.print();

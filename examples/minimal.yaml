@@ -10,13 +10,15 @@ hyperperiod: 300000
 dag_period: 300000 # in us
 dag_deadline: 300000 # in us
 tasks_name: ["n000","n001","n002","n003"]
-# it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc. 
+tasks_type: ["cpu","cpu","cpu","cpu"]
+# it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc.
 # The actual task computation time is decided randomly in runtime
-tasks_wcet: [50000,50000,50000,50000] # in us. 
+tasks_wcet: [50000,50000,50000,50000] # in us.
+tasks_runtime: [50000,50000,50000,50000] # in us.
 # The relative deadline of each task.
 # make sure that the sum of the longest path must be <= DAG_DEADLINE since
 # this consistency is not done here !!!
-tasks_rel_deadline: [100000,100000,100000,100000] # in us. 
+tasks_rel_deadline: [100000,100000,100000,100000] # in us.
 # pin threads/processes onto the specified cores
 tasks_affinity: [1,2,2,3]
 # set the frequency of each core, in MHz
