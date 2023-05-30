@@ -58,7 +58,7 @@ check_optional_library(Fred)
 # =================== CPM Dependencies =================== #
 
 # Libfmt version 10.0.0
-CPMAddPackage("gh:fmtlib/fmt#10.0.0")
+# CPMAddPackage("gh:fmtlib/fmt#10.0.0")
 
 # Lib YAML CPP version 0.7.0
 CPMAddPackage("gh:jbeder/yaml-cpp#yaml-cpp-0.7.0@0.7.0")
