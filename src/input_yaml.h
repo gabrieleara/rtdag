@@ -159,7 +159,7 @@ private:
         long long runtime;
         long long rel_deadline;
         int affinity;
-#if RTDAG_FRED_USE == ON
+#if RTDAG_FRED_SUPPORT == ON
         int fred_id;
 #endif
     };
@@ -246,6 +246,10 @@ public:
         }
 
         // FIXME: fred_ids
+#if RTDAG_FRED_SUPPORT == ON
+        std::vector<int> fred_ids;
+        M_GET_TASKS_VEC(fred_ids, "fred_id");
+#endif
 
         // Copy data back into array and matrix
         for (int i = 0; i < n_tasks; ++i) {
@@ -257,7 +261,7 @@ public:
                 .rel_deadline = task_rel_deadlines[i],
                 .affinity = task_affinities[i],
 
-#if RTDAG_FRED_USE == ON
+#if RTDAG_FRED_SUPPORT == ON
                 .fred_id = fred_ids[i],
 #endif
             };
@@ -324,9 +328,9 @@ public:
         return tasks[t].type.c_str();
     }
 
-#if RTDAG_FRED_USE == ON
+#if RTDAG_FRED_SUPPORT == ON
     int get_fred_id(unsigned t) const override {
-        return data["fred_id"] ? data["fred_id"][t].as<int>() : -1;
+        return tasks[t].fred_id;
     }
 #endif
 

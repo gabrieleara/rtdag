@@ -44,7 +44,7 @@
 
 extern float expected_wcet_ratio_override;
 
-#if RTDAG_FRED_USE == ON
+#if RTDAG_FRED_SUPPORT == ON
 #include "fred_lib.h"
 typedef uint64_t data_t;
 #endif
@@ -158,7 +158,7 @@ public:
             tasks[i].name = input->get_tasks_name(i);
             tasks[i].type = input->get_tasks_type(i);
 // it will return -1 if there is no fred_accel
-#if RTDAG_FRED_USE == ON
+#if RTDAG_FRED_SUPPORT == ON
             tasks[i].fred_id = input->get_fred_id(i);
 #endif
             tasks[i].wcet = input->get_tasks_wcet(i);
@@ -274,7 +274,7 @@ private:
                                   const unsigned hyperperiod_iters,
                                   const unsigned long dag_deadline_us,
                                   const unsigned long period_us = 0) {
-#if RTDAG_FRED_USE == OFF
+#if RTDAG_FRED_SUPPORT == OFF
         // FIXME: This is not a good way of doing this optionally
         (void)seed;
         (void)dag_name;
@@ -284,6 +284,12 @@ private:
         (void)period_us;
 
 #else // USE_FRED
+
+        // Fred tasks are never originators nor sinks
+        (void)seed;
+        (void)dag_name;
+        (void)dag_deadline_us;
+        (void)period_us;
 
         struct fred_data *fred;
         struct fred_hw_task *hw_ip;

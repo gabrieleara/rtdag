@@ -57,7 +57,7 @@ function(check_optional_library library_name)
         mark_as_advanced(RTDAG_${library_name_upper}_USE)
 
         if(RTDAG_${library_name_upper}_REQUIRED)
-            message(FATAL_ERROR "REQUIRED OpenCL library not found!")
+            message(FATAL_ERROR "REQUIRED ${library_name} library not found!")
         endif()
     endif()
 endfunction()

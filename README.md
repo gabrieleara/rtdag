@@ -68,12 +68,8 @@ $ cmake -S . -B ./build
 -- RTDAG_COMPILER_BARRIER      ON
 -- RTDAG_MEM_ACCESS            OFF
 -- RTDAG_COUNT_TICK            ON
--- RTDAG_OPENCL_USE            OFF
--- RTDAG_FRED_USE              OFF
--- RTDAG_OPENCL_REQUIRED       OFF
--- RTDAG_FRED_REQUIRED         OFF
--- LIBRARY OpenCL NOT FOUND!
--- LIBRARY Fred NOT FOUND!
+-- RTDAG_OPENCL_SUPPORT        OFF
+-- RTDAG_FRED_SUPPORT          OFF
 -- -------------------------------------------
 -- Configuring done (0.2s)
 -- Generating done (0.0s)

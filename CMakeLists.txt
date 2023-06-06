@@ -39,15 +39,28 @@ add_option_bool(RTDAG_COUNT_TICK ON "Enable tick-based emulation of computation.
 # find_package(YAML-CPP REQUIRED HINTS /usr/local/share/cmake)
 
 # OpenCL
-add_option_bool(RTDAG_OPENCL_REQUIRED OFF "Makes OpenCL a REQUIRED library.")
-find_library(OpenCL NAMES libOpenCL libOpenCL.so.1 HINTS /usr/lib /usr/lib64)
-check_optional_library(OpenCL)
+# add_option_bool(RTDAG_OPENCL_REQUIRED OFF "Makes OpenCL a REQUIRED library.")
+# find_library(OpenCL NAMES libOpenCL libOpenCL.so.1 HINTS /usr/lib /usr/lib64)
+# check_optional_library(OpenCL)
 
 # FRED
-add_option_string(RTDAG_FRED_PATH "/usr" "Lookup path for FRED LIBRARY")
-add_option_bool(RTDAG_FRED_REQUIRED OFF "Makes FRED a REQUIRED library.")
-find_library(Fred NAMES fred libfred fred-lib fredlib HINTS ${RTDAG_FRED_PATH}/lib)
-check_optional_library(Fred)
+add_option_bool(RTDAG_FRED_SUPPORT OFF "Enables Fred support in RTDAG. Makes Fred a required dependency.")
+if (RTDAG_FRED_SUPPORT)
+    CPMAddPackage(
+        NAME libfred
+        GIT_REPOSITORY https://github.com/fred-framework/fred-linux-client-lib.git
+        GIT_TAG master # Do not care for version numbers for now
+    )
+
+    if (NOT libfred_ADDED STREQUAL "YES")
+        message(FATAL_ERROR "Required dependency libfred not found!")
+    endif()
+endif()
+
+# add_option_string(RTDAG_FRED_PATH "/usr" "Lookup path for FRED LIBRARY")
+# add_option_bool(RTDAG_FRED_REQUIRED OFF "Makes FRED a REQUIRED library.")
+# find_library(Fred NAMES fred libfred fred-lib fredlib HINTS ${RTDAG_FRED_PATH}/lib)
+# check_optional_library(Fred)
 
 # FIXME: includes for a library (shouldn't they be found automatically?)
 # include_directories(${FRED_PATH}/include/ ${FRED_PATH})
@@ -77,13 +90,10 @@ message(STATUS "RTDAG_INPUT_TYPE            ${RTDAG_INPUT_TYPE} (${RTDAG_INPUT_T
 message(STATUS "RTDAG_COMPILER_BARRIER      ${RTDAG_COMPILER_BARRIER}")
 message(STATUS "RTDAG_MEM_ACCESS            ${RTDAG_MEM_ACCESS}")
 message(STATUS "RTDAG_COUNT_TICK            ${RTDAG_COUNT_TICK}")
-message(STATUS "RTDAG_OPENCL_USE            ${RTDAG_OPENCL_USE}")
-message(STATUS "RTDAG_FRED_USE              ${RTDAG_FRED_USE}")
-message(STATUS "RTDAG_OPENCL_REQUIRED       ${RTDAG_OPENCL_REQUIRED}")
-message(STATUS "RTDAG_FRED_REQUIRED         ${RTDAG_FRED_REQUIRED}")
+message(STATUS "RTDAG_FRED_SUPPORT          ${RTDAG_FRED_SUPPORT}")
 
-message_library(OpenCL)
-message_library(Fred)
+# message_library(OpenCL)
+# message_library(Fred)
 
 message(STATUS "------------------------------------------- ")
 
@@ -126,8 +136,12 @@ target_link_libraries(rtdag
     yaml-cpp
 )
 
-target_optional_link_library(rtdag Fred)
-target_optional_link_library(rtdag OpenCL)
+if (RTDAG_FRED_SUPPORT)
+    target_link_libraries(rtdag FredFramework::libfred_static)
+endif()
+
+# target_optional_link_library(rtdag Fred)
+# target_optional_link_library(rtdag OpenCL)
 
 
 # ================== INSTALL PROPERTIES ================== #
