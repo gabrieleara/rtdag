@@ -44,7 +44,7 @@
 
 extern float expected_wcet_ratio_override;
 
-#ifdef USE_FRED
+#if RTDAG_FRED_USE == ON
 #include "fred_lib.h"
 typedef uint64_t data_t;
 #endif
@@ -274,7 +274,7 @@ private:
                                   const unsigned hyperperiod_iters,
                                   const unsigned long dag_deadline_us,
                                   const unsigned long period_us = 0) {
-#ifndef USE_FRED
+#if RTDAG_FRED_USE == OFF
         // FIXME: This is not a good way of doing this optionally
         (void)seed;
         (void)dag_name;
@@ -308,7 +308,7 @@ private:
         }
 
         // make sure the buffers are cleaned, otherwise assertion error will
-        // popup when ENABLE_MEM_ACCESS is disabled
+        // popup when RTDAG_MEM_ACCESS is disabled
         for (int i = 0; i < (int)task.in_buffers.size(); ++i) {
             memset(task.in_buffers[i]->msg_buf, '.',
                    task.in_buffers[i]->msg_size);
@@ -400,7 +400,7 @@ private:
                 assert((int)strlen(task.in_buffers[i]->msg_buf) ==
                        task.in_buffers[i]->msg_size - 1);
 // TODO actually move data from task.in_buffers[i]->msg_buf ===> fred_bufs[i]
-#ifdef ENABLE_MEM_ACCESS
+#if RTDAG_MEM_ACCESS == ON
                 memcpy(fred_bufs[i], task.in_buffers[i]->msg_buf,
                        task.in_buffers[i]->msg_size);
 #endif
@@ -442,7 +442,7 @@ private:
             LOG(INFO, "task %s (%u): sending msgs!\n", task_name, iter);
             for (int i = 0; i < (int)task.out_buffers.size(); ++i) {
 // TODO actually move data from fred_bufs[i] ==> task.out_buffers[i]->msg_buf
-#ifdef ENABLE_MEM_ACCESS
+#if RTDAG_MEM_ACCESS == ON
                 memcpy(task.out_buffers[i + task.in_buffers.size()]->msg_buf,
                        fred_bufs[i], task.out_buffers[i]->msg_size);
 #endif
@@ -507,7 +507,7 @@ private:
         }
 
         // make sure the buffers are cleaned, otherwise assertion error will
-        // popup when ENABLE_MEM_ACCESS is disabled
+        // popup when RTDAG_MEM_ACCESS is disabled
         for (int i = 0; i < (int)task.in_buffers.size(); ++i) {
             memset(task.in_buffers[i]->msg_buf, '.',
                    task.in_buffers[i]->msg_size);
@@ -520,7 +520,7 @@ private:
             task.out_buffers[i]->msg_buf[task.out_buffers[i]->msg_size - 1] = 0;
         }
 
-        // this volatile variable is only used when ENABLE_MEM_ACCESS is enabled
+        // this volatile variable is only used when RTDAG_MEM_ACCESS is enabled
         // in compile time. this is used to avoid optimize away all the mem read
         // logic
         volatile char checksum = 0;
@@ -629,7 +629,7 @@ private:
                 for (int i = 0; i < (int)task.in_buffers.size(); i++) {
                     assert((int)strlen(task.in_buffers[i]->msg_buf) ==
                            task.in_buffers[i]->msg_size - 1);
-#ifdef ENABLE_MEM_ACCESS
+#if RTDAG_MEM_ACCESS == ON
                     // This is a dummy code (a checksum calculation w xor) to
                     // mimic the memory reads required by the task model
                     checksum ^= read_input_buffer(task.in_buffers[i]->msg_buf,
@@ -655,7 +655,7 @@ private:
             // runs busy waiting to mimic some actual processing.
             // using sleep or wait wont achieve the same result, for instance,
             // in power consumption
-#ifdef USE_COUNT_TICK
+#if RTDAG_COUNT_TICK == ON
             // fprintf(stderr, "%s %ld\n", task_name, wcet);
             Count_Time_Ticks(wcet);
 #else
@@ -669,7 +669,7 @@ private:
             // send data to the next tasks.
             LOG(INFO, "task %s (%u): sending msgs!\n", task_name, iter);
             for (int i = 0; i < (int)task.out_buffers.size(); ++i) {
-#ifdef ENABLE_MEM_ACCESS
+#if RTDAG_MEM_ACCESS == ON
                 // the following lines mimic the memory writes required by the
                 // task model OBS: Although the use of snprintf helps debbuging,
                 // to see if the receiver tasks are indeed receiving the data,
@@ -905,7 +905,7 @@ private:
     }
 #endif
 
-    // used to mimic the buffer memory reads when ENABLE_MEM_ACCESS is enabled
+    // used to mimic the buffer memory reads when RTDAG_MEM_ACCESS is enabled
     static char read_input_buffer(char *buffer, unsigned size) {
         char checksum = 0;
         for (unsigned i = 0; i < size; ++i) {
