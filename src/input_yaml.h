@@ -159,7 +159,7 @@ private:
         long long runtime;
         long long rel_deadline;
         int affinity;
-#if CONFIG_FRED_USE == ON
+#if RTDAG_FRED_USE == ON
         int fred_id;
 #endif
     };
@@ -257,7 +257,7 @@ public:
                 .rel_deadline = task_rel_deadlines[i],
                 .affinity = task_affinities[i],
 
-#if CONFIG_FRED_USE == ON
+#if RTDAG_FRED_USE == ON
                 .fred_id = fred_ids[i],
 #endif
             };
@@ -324,7 +324,7 @@ public:
         return tasks[t].type.c_str();
     }
 
-#if CONFIG_FRED_USE == ON
+#if RTDAG_FRED_USE == ON
     int get_fred_id(unsigned t) const override {
         return data["fred_id"] ? data["fred_id"][t].as<int>() : -1;
     }

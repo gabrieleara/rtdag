@@ -62,16 +62,16 @@ $ cmake -S . -B ./build
 -- [...]
 -- ---------- CONFIGURATION OPTIONS ----------
 -- CMAKE_BUILD_TYPE            Release
--- CONFIG_LOG_LEVEL            none (0)
--- CONFIG_TASK_IMPL            thread (0)
--- CONFIG_INPUT_TYPE           yaml (0)
--- CONFIG_COMPILER_BARRIER     ON
--- CONFIG_MEM_ACCESS           OFF
--- CONFIG_COUNT_TICK           ON
--- CONFIG_OPENCL_USE           OFF
--- CONFIG_FRED_USE             OFF
--- CONFIG_OPENCL_REQUIRED      OFF
--- CONFIG_FRED_REQUIRED        OFF
+-- RTDAG_LOG_LEVEL             none (0)
+-- RTDAG_TASK_IMPL             thread (0)
+-- RTDAG_INPUT_TYPE            yaml (0)
+-- RTDAG_COMPILER_BARRIER      ON
+-- RTDAG_MEM_ACCESS            OFF
+-- RTDAG_COUNT_TICK            ON
+-- RTDAG_OPENCL_USE            OFF
+-- RTDAG_FRED_USE              OFF
+-- RTDAG_OPENCL_REQUIRED       OFF
+-- RTDAG_FRED_REQUIRED         OFF
 -- LIBRARY OpenCL NOT FOUND!
 -- LIBRARY Fred NOT FOUND!
 -- -------------------------------------------
@@ -84,11 +84,11 @@ Any of the displayed options can be changed by passing it as argument to
 `cmake`, like so:
 
 ```txt
-$ cmake -S . -B ./build -DCONFIG_MEM_ACCESS=ON
+$ cmake -S . -B ./build -DRTDAG_MEM_ACCESS=ON
 -- [...]
 -- ---------- CONFIGURATION OPTIONS ----------
 -- [...]
--- CONFIG_MEM_ACCESS           ON
+-- RTDAG_MEM_ACCESS            ON
 -- [...]
 -- -------------------------------------------
 -- Configuring done (2.6s)

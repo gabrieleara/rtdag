@@ -4,14 +4,14 @@
 
 #include "input_base.h"
 
-#if CONFIG_INPUT_TYPE == INPUT_TYPE_YAML
+#if RTDAG_INPUT_TYPE == INPUT_TYPE_YAML
 
 #include "input_yaml.h"
 using input_type = input_yaml;
 #define INPUT_TYPE_NAME "yaml"
 #define INPUT_TYPE_NAME_CAPS "YAML"
 
-#elif CONFIG_INPUT_TYPE == INPUT_TYPE_HEADER
+#elif RTDAG_INPUT_TYPE == INPUT_TYPE_HEADER
 
 #include "input_header.h"
 using input_type = input_header;

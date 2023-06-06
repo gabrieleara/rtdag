@@ -11,8 +11,8 @@
 #define LOG_LEVEL_DEBUG 4
 #endif
 
-#ifndef CONFIG_LOG_LEVEL
-#define CONFIG_LOG_LEVEL LOG_LEVEL_DEBUG
+#ifndef RTDAG_LOG_LEVEL
+#define RTDAG_LOG_LEVEL LOG_LEVEL_DEBUG
 #endif
 
 #define NONE LOG_LEVEL_NONE
@@ -21,7 +21,7 @@
 #define INFO LOG_LEVEL_INFO
 #define DEBUG LOG_LEVEL_DEBUG
 
-#define THE_LOG_LEVEL CONFIG_LOG_LEVEL
+#define THE_LOG_LEVEL RTDAG_LOG_LEVEL
 
 #define LOG(level, format, ...)                                                \
     do {                                                                       \

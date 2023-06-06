@@ -158,7 +158,7 @@ public:
             tasks[i].name = input->get_tasks_name(i);
             tasks[i].type = input->get_tasks_type(i);
 // it will return -1 if there is no fred_accel
-#if CONFIG_FRED_USE == ON
+#if RTDAG_FRED_USE == ON
             tasks[i].fred_id = input->get_fred_id(i);
 #endif
             tasks[i].wcet = input->get_tasks_wcet(i);

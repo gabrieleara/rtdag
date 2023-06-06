@@ -12,7 +12,7 @@ using namespace std;
 // ║                          Calibration and Testing                          ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-#if CONFIG_USE_COMPILER_BARRIER == ON
+#if RTDAG_USE_COMPILER_BARRIER == ON
 // It tells the compiler to not reorder instructions around it
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 #else

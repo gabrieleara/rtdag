@@ -4,21 +4,18 @@ project(rtdag LANGUAGES C CXX)
 include(cmake/util.cmake)
 include(cmake/CPM.cmake)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-
 # ==================== GLOBAL OPTIONS ==================== #
 
 # Choice-based features
 add_option_choice_force(CMAKE_BUILD_TYPE "Release" "Debug;Release;MinSizeRel;RelWithDebInfo" "Select type of build")
-add_option_numbered_choice(CONFIG_LOG_LEVEL "none" "none;error;warning;info;debug" "Logger verbosity level")
-add_option_numbered_choice(CONFIG_TASK_IMPL "thread" "thread;process" "How the task is implemented (either a thread or a process)")
-add_option_numbered_choice(CONFIG_INPUT_TYPE "yaml" "yaml;header" "How rtdag task configuration is provided")
+add_option_numbered_choice(RTDAG_LOG_LEVEL "none" "none;error;warning;info;debug" "Logger verbosity level")
+add_option_numbered_choice(RTDAG_TASK_IMPL "thread" "thread;process" "How the task is implemented (either a thread or a process)")
+add_option_numbered_choice(RTDAG_INPUT_TYPE "yaml" "yaml;header" "How rtdag task configuration is provided")
 
 # Booolean features
-add_option_bool(CONFIG_COMPILER_BARRIER ON "Injects compiler barriers into code to prevent instruction reordering")
-add_option_bool(CONFIG_MEM_ACCESS OFF "Enable memory rd/wr for every message sent.")
-add_option_bool(CONFIG_COUNT_TICK ON "Enable tick-based emulation of computation. When OFF, uses 'clock_gettime' instead.")
+add_option_bool(RTDAG_COMPILER_BARRIER ON "Injects compiler barriers into code to prevent instruction reordering")
+add_option_bool(RTDAG_MEM_ACCESS OFF "Enable memory rd/wr for every message sent.")
+add_option_bool(RTDAG_COUNT_TICK ON "Enable tick-based emulation of computation. When OFF, uses 'clock_gettime' instead.")
 
 # Missing Optional Features (I think)
 
@@ -42,14 +39,14 @@ add_option_bool(CONFIG_COUNT_TICK ON "Enable tick-based emulation of computation
 # find_package(YAML-CPP REQUIRED HINTS /usr/local/share/cmake)
 
 # OpenCL
-add_option_bool(CONFIG_OPENCL_REQUIRED OFF "Makes OpenCL a REQUIRED library.")
+add_option_bool(RTDAG_OPENCL_REQUIRED OFF "Makes OpenCL a REQUIRED library.")
 find_library(OpenCL NAMES libOpenCL libOpenCL.so.1 HINTS /usr/lib /usr/lib64)
 check_optional_library(OpenCL)
 
 # FRED
-add_option_string(CONFIG_FRED_PATH "/usr" "Lookup path for FRED LIBRARY")
-add_option_bool(CONFIG_FRED_REQUIRED OFF "Makes FRED a REQUIRED library.")
-find_library(Fred NAMES fred libfred fred-lib fredlib HINTS ${CONFIG_FRED_PATH}/lib)
+add_option_string(RTDAG_FRED_PATH "/usr" "Lookup path for FRED LIBRARY")
+add_option_bool(RTDAG_FRED_REQUIRED OFF "Makes FRED a REQUIRED library.")
+find_library(Fred NAMES fred libfred fred-lib fredlib HINTS ${RTDAG_FRED_PATH}/lib)
 check_optional_library(Fred)
 
 # FIXME: includes for a library (shouldn't they be found automatically?)
@@ -66,48 +63,78 @@ CPMAddPackage("gh:jbeder/yaml-cpp#yaml-cpp-0.7.0@0.7.0")
 # ============== SAVE CONFIGURATION TO FILE ============== #
 
 # Configuration file, will be place in $CMAKE_CURRENT_BINARY_DIR, visible
-# to all targets via forced include
+# to all targets via forced include (see src/CMakeLists.txt)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/rtdag_config.h.in rtdag_config.h @ONLY)
-add_definitions(-include ${CMAKE_CURRENT_BINARY_DIR}/rtdag_config.h)
 
 # ================= PRINT CONFIGURATION ================== #
 
 # Print all configuration variables
 message(STATUS "---------- CONFIGURATION OPTIONS ---------- ")
 message(STATUS "CMAKE_BUILD_TYPE            ${CMAKE_BUILD_TYPE}")
-message(STATUS "CONFIG_LOG_LEVEL            ${CONFIG_LOG_LEVEL} (${CONFIG_LOG_LEVEL_VALUE})")
-message(STATUS "CONFIG_TASK_IMPL            ${CONFIG_TASK_IMPL} (${CONFIG_TASK_IMPL_VALUE})")
-message(STATUS "CONFIG_INPUT_TYPE           ${CONFIG_INPUT_TYPE} (${CONFIG_INPUT_TYPE_VALUE})")
-message(STATUS "CONFIG_COMPILER_BARRIER     ${CONFIG_COMPILER_BARRIER}")
-message(STATUS "CONFIG_MEM_ACCESS           ${CONFIG_MEM_ACCESS}")
-message(STATUS "CONFIG_COUNT_TICK           ${CONFIG_COUNT_TICK}")
-message(STATUS "CONFIG_OPENCL_USE           ${CONFIG_OPENCL_USE}")
-message(STATUS "CONFIG_FRED_USE             ${CONFIG_FRED_USE}")
-message(STATUS "CONFIG_OPENCL_REQUIRED      ${CONFIG_OPENCL_REQUIRED}")
-message(STATUS "CONFIG_FRED_REQUIRED        ${CONFIG_FRED_REQUIRED}")
+message(STATUS "RTDAG_LOG_LEVEL             ${RTDAG_LOG_LEVEL} (${RTDAG_LOG_LEVEL_VALUE})")
+message(STATUS "RTDAG_TASK_IMPL             ${RTDAG_TASK_IMPL} (${RTDAG_TASK_IMPL_VALUE})")
+message(STATUS "RTDAG_INPUT_TYPE            ${RTDAG_INPUT_TYPE} (${RTDAG_INPUT_TYPE_VALUE})")
+message(STATUS "RTDAG_COMPILER_BARRIER      ${RTDAG_COMPILER_BARRIER}")
+message(STATUS "RTDAG_MEM_ACCESS            ${RTDAG_MEM_ACCESS}")
+message(STATUS "RTDAG_COUNT_TICK            ${RTDAG_COUNT_TICK}")
+message(STATUS "RTDAG_OPENCL_USE            ${RTDAG_OPENCL_USE}")
+message(STATUS "RTDAG_FRED_USE              ${RTDAG_FRED_USE}")
+message(STATUS "RTDAG_OPENCL_REQUIRED       ${RTDAG_OPENCL_REQUIRED}")
+message(STATUS "RTDAG_FRED_REQUIRED         ${RTDAG_FRED_REQUIRED}")
 
 message_library(OpenCL)
 message_library(Fred)
 
 message(STATUS "------------------------------------------- ")
 
-# =================== COMPILER OPTIONS =================== #
+# ======================= TARGETS ======================== #
 
-#
-add_compile_options(
-  -Werror
-  -Wall
-  -Wextra
-  -Wpedantic
-  -Wno-variadic-functions
-  -Wno-long-long
-  -Wno-variadic-macros
-
-  -Wfatal-errors
-  # -Wno-extra-semi # only avaible in newer compilers
+add_executable(rtdag
+    src/rtdag_main.cpp
+    src/periodic_task.c
+    src/time_aux.c
 )
 
-# ======================== TARGETS ======================= #
+set_target_properties(rtdag PROPERTIES
+    LANGUAGE CXX
+)
 
-# See CMakeLists.txt in src
-add_subdirectory(src ${CMAKE_CURRENT_BINARY_DIR}/bin)
+target_compile_features(rtdag PUBLIC cxx_std_20)
+target_compile_options(rtdag PRIVATE
+    -Werror
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Wno-variadic-functions
+    -Wno-long-long
+    -Wno-variadic-macros
+
+    -include ${CMAKE_CURRENT_BINARY_DIR}/rtdag_config.h
+)
+
+# target_compile_definitions(rtdag PRIVATE)
+
+target_include_directories(rtdag
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(rtdag
+    m
+    rt
+    pthread
+    yaml-cpp
+)
+
+target_optional_link_library(rtdag Fred)
+target_optional_link_library(rtdag OpenCL)
+
+
+# ================== INSTALL PROPERTIES ================== #
+
+include(GNUInstallDirs)
+
+# Export targets to install
+install(TARGETS rtdag
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
