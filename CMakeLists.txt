@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 project(rtdag LANGUAGES C CXX)
 
 include(cmake/util.cmake)
@@ -123,7 +123,6 @@ target_compile_options(rtdag PRIVATE
 )
 
 # target_compile_definitions(rtdag PRIVATE)
-
 target_include_directories(rtdag
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
