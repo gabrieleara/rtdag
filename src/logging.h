@@ -26,7 +26,7 @@
 #define LOG(level, format, ...)                                                \
     do {                                                                       \
         if constexpr (level <= THE_LOG_LEVEL) {                                \
-            std::printf("[%7s] %s:%d: %s(): " format "\n", #level, __FILE__,   \
+            std::printf("[%7s] %s:%d: %s(): " format, #level, __FILE__,   \
                         __LINE__, __func__, ##__VA_ARGS__);                    \
         }                                                                      \
     } while (0)

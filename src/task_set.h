@@ -803,14 +803,40 @@ private:
         // executed
         const unsigned total_iterations =
             hyperperiod_iters * input->get_repetitions();
-        // the 1st and the last tasks must be running on the CPU, because of the
-        // end-to-end execution time logging
-        if (tasks[0].type != "cpu" ||
-            tasks[input->get_n_tasks() - 1].type != "cpu") {
-            fprintf(stderr, "ERROR: both the 1st and the last tasks must be "
-                            "running on a CPU \n");
+
+        // Assuming the first task is the originator. It must run on the
+        // CPU, because of the end-to-end execution time logging.
+        if (tasks[0].type != "cpu") {
+            fprintf(stderr, "ERROR: the 1st task must be running on a CPU!\n");
             exit(1);
         }
+
+        // Assuming the first task is the originator. It must not have any
+        // dependency from other tasks.
+        if (tasks[0].in_buffers.size() > 0) {
+            fprintf(
+                stderr,
+                "ERROR: the 1st task must NOT have any incoming messages!\n");
+            exit(1);
+        }
+
+        const auto task_sink_iter = std::find_if(
+            std::cbegin(tasks), std::cend(tasks),
+            [](const auto &task) { return task.out_buffers.size() == 0; });
+
+        if (task_sink_iter == std::cend(tasks)) {
+            fprintf(stderr, "ERROR: could not find the last task!\n");
+            exit(1);
+        }
+
+        // The sink task must run on the CPU, because of the end-to-end
+        // execution time logging.
+        const auto &task_sink = *task_sink_iter;
+        if (task_sink.type != "cpu") {
+            fprintf(stderr, "ERROR: the last task must be running on a CPU!\n");
+            exit(1);
+        }
+
         threads.push_back(thread(task_creator, seed, input->get_dagset_name(),
                                  tasks[0], total_iterations,
                                  input->get_deadline(), input->get_period(),
@@ -830,9 +856,9 @@ private:
                     total_iterations, input->get_deadline(), 0));
                 // place holder for the OpenCL task
                 //}else if (tasks[i].type == "opencl"){
-                //    threads.push_back(std::thread(opencl_task_creator, seed,
-                //    input->get_dagset_name(), tasks[i], total_iterations,
-                //    input->get_deadline(), 0));
+                //    threads.push_back(std::thread(opencl_task_creator,
+                //    seed, input->get_dagset_name(), tasks[i],
+                //    total_iterations, input->get_deadline(), 0));
             } else {
                 fprintf(stderr, "ERROR: invalid task type '%s' \n",
                         tasks[i].type.c_str());
@@ -847,7 +873,7 @@ private:
         }
     }
 
-#if TASK_IMPL != 0
+#if TASK_IMPL == TASK_IMPL_PROCESS
     void process_launcher(unsigned seed) {
         this->spawn_proc(tasks[0], seed, input->get_period());
         for (unsigned i = 1; i < input->get_n_tasks(); ++i) {
@@ -930,14 +956,17 @@ private:
             exit(1);
         }
         sa.sched_policy = SCHED_DEADLINE;
-        // time in microseconds
-        sa.sched_runtime = runtime;
-        sa.sched_deadline = deadline;
-        sa.sched_period = period;
+        // time in nanoseconds!!!
+        sa.sched_runtime = u64(runtime) * 1000;
+        sa.sched_deadline = u64(deadline) * 1000;
+        sa.sched_period = u64(period) * 1000;
 
 #define SCHED_FLAG_RESET_ON_FORK 0x01
 #define SCHED_FLAG_RECLAIM 0x02
 #define SCHED_FLAG_DL_OVERRUN 0x04
+
+        LOG(DEBUG, "sched_setattr attributes: DL_C=%ld DL_D=%ld DL_T=%ld\n",
+            sa.sched_runtime, sa.sched_deadline, sa.sched_period);
 
         // sa.sched_flags |= SCHED_FLAG_RECLAIM;
         if (sched_setattr(0, &sa, 0) < 0) {
