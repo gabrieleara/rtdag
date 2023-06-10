@@ -27,29 +27,6 @@ That's it, you now can find in `./build/bin/rtdag` the final binary.
 > TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 > TODO
 
-## Cross Compiling
-
-This project supports cross-compilation for ElinOS projects. To cross
-compile, you have to source your `ELINOS.sh` configuration file first, and
-then you have to specify the following toolchain file like so:
-
-```bash
-source elinos_project_path/ELINOS.sh
-cmake -S. -B ./build-cross -DCMAKE_TOOLCHAIN_FILE=./toolchains/elinos.cmake
-cmake --build ./build-cross # Build normally
-```
-
-You will see that during the configuration phase CMake will log that it
-found the cross-compiler to use for later.
-
-You can then copy the binary to your ElinOS installation. All dependencies
-(apart pthread/libc++ libraries) are re-built from sources and statically
-linked to the final binary, so you do not have to worry about anything.
-
-> **NOTE**: The optional dependency to OpenCL is not tested with
-> cross-compilation (or in general). If you do need to test real-time DAGs
-> running OpenCL applications do it at your own risk.
-
 ## Customizing RTDAG behavior and selecting features
 
 There are several options that you can customize in the configuration step.
@@ -98,7 +75,7 @@ $ cmake -S . -B ./build -DRTDAG_MEM_ACCESS=ON
 > and it may keep the old values as they are.
 
 > **NOTE**: All these options are technically compatible with cross
-> compilation, except with OpenCL and Fred ones, which are not tested yet.
+> compilation, except with OpenCL, which is not tested yet.
 
 ## Authors
 
