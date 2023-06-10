@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+// NOTE: change here to test different matrix sizes (64, 128, etc)
 #define GAUSS_SIZE 4
 #define GAUSS_MSIZE (GAUSS_SIZE * GAUSS_SIZE)
 
@@ -120,7 +121,9 @@ static void gauss_transpose(const double in[GAUSS_MSIZE],
 static void gauss_multiply(const double in1[GAUSS_MSIZE],
                            const double in2[GAUSS_MSIZE],
                            double out[GAUSS_MSIZE]) {
+#pragma omp parallel for
     for (int i = 0; i < GAUSS_SIZE; i++) {
+#pragma omp parallel for
         for (int j = 0; j < GAUSS_SIZE; j++) {
             double acc = 0;
             for (int k = 0; k < GAUSS_SIZE; k++)
@@ -131,15 +134,18 @@ static void gauss_multiply(const double in1[GAUSS_MSIZE],
 }
 
 static inline bool gauss_is_equal(double x, double y) {
-    const double epsilon = 1e-6;
-    return gauss_absd(x - y) <= epsilon * gauss_absd(x);
+    const double epsilon = 1e-5;
+    return gauss_absd(x - y) <=
+           epsilon; // I know, doesn't make sense for big or small numbers
 }
 
 static bool gauss_is_identity(const double in[GAUSS_MSIZE]) {
     bool valid = true;
     bool temp;
     double test;
+#pragma omp parallel for reduction(&& : valid)
     for (int i = 0; i < GAUSS_SIZE; ++i) {
+#pragma omp parallel for reduction(&& : valid)
         for (int j = 0; j < GAUSS_SIZE; ++j) {
             test = (i == j) ? 1.0 : 0.0;
             temp = gauss_is_equal(gauss_at(in, i, j), test);
