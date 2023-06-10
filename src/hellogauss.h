@@ -121,9 +121,9 @@ static void gauss_transpose(const double in[GAUSS_MSIZE],
 static void gauss_multiply(const double in1[GAUSS_MSIZE],
                            const double in2[GAUSS_MSIZE],
                            double out[GAUSS_MSIZE]) {
-#pragma omp parallel for
+// NOTE: parallelising only the first two loops!
+#pragma omp parallel for collapse(2)
     for (int i = 0; i < GAUSS_SIZE; i++) {
-#pragma omp parallel for
         for (int j = 0; j < GAUSS_SIZE; j++) {
             double acc = 0;
             for (int k = 0; k < GAUSS_SIZE; k++)
@@ -143,15 +143,16 @@ static bool gauss_is_identity(const double in[GAUSS_MSIZE]) {
     bool valid = true;
     bool temp;
     double test;
-#pragma omp parallel for reduction(&& : valid)
+
+#pragma omp parallel for collapse(2) reduction(&& : valid)
     for (int i = 0; i < GAUSS_SIZE; ++i) {
-#pragma omp parallel for reduction(&& : valid)
         for (int j = 0; j < GAUSS_SIZE; ++j) {
             test = (i == j) ? 1.0 : 0.0;
             temp = gauss_is_equal(gauss_at(in, i, j), test);
             valid = valid && temp;
         }
     }
+
     return valid;
 }
 

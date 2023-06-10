@@ -4,8 +4,8 @@
 #include <omp.h>
 #include <stdio.h>
 
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
 
 /**
  * Calculate the difference between two timespecs.
@@ -47,7 +47,11 @@ int main() {
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &before);
 
-#pragma omp target
+#pragma omp target \
+    map(to:     A[0:GAUSS_MSIZE]) \
+    map(to:     B[0:GAUSS_MSIZE]) \
+    map(from:   C[0:GAUSS_MSIZE]) \
+    map(to:     is_identity)
     {
         gauss_multiply(A, B, C);
         is_identity = gauss_is_identity(C);
