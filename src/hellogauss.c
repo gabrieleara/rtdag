@@ -119,7 +119,7 @@ static void gauss_multiply_omp(const double in1[GAUSS_MSIZE],
                            const double in2[GAUSS_MSIZE],
                            double out[GAUSS_MSIZE]) {
 // NOTE: parallelising only the first two loops!
-#pragma omp simd collapse(2)
+#pragma omp parallel for collapse(2)
     for (int i = 0; i < GAUSS_SIZE; i++) {
         for (int j = 0; j < GAUSS_SIZE; j++) {
             double acc = 0;
@@ -170,7 +170,7 @@ static bool gauss_is_identity_omp(const double in[GAUSS_MSIZE]) {
     bool temp;
     double test;
 
-    #pragma omp simd collapse(2) reduction(&& : valid)
+    #pragma omp parallel for collapse(2) reduction(&& : valid)
     for (int i = 0; i < GAUSS_SIZE; ++i) {
         for (int j = 0; j < GAUSS_SIZE; ++j) {
             test = (i == j) ? 1.0 : 0.0;
@@ -218,19 +218,70 @@ int main() {
     struct timespec before;
     struct timespec after;
 
-    int ndev = -1;
-
-    clock_gettime(CLOCK_MONOTONIC, &before);
-
 #define N 100
 
+    for (int k = 0; k < 10; k++) {
+
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    int ndev = -1;
+    {
+    // Hope it doesn't get optimized away
     for (int i = 0; i < N; ++i) {
-#pragma omp target device(0)                        \
+        gauss_multiply(A, B, C);
+        is_identity = gauss_is_identity(C);
+    }
+
+    }
+    clock_gettime(CLOCK_MONOTONIC, &after);
+    printf("Identity? %s\n", is_identity ? "yes!" : "no!");
+    printf("CPU-seq: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    ndev = -1;
+    for (int i = 0; i < N; ++i) {
+    {
+        // Hope it doesn't get optimized away
+        ndev = omp_get_device_num();
+        gauss_multiply_omp(A, B, C);
+        is_identity = gauss_is_identity_omp(C);
+    }
+
+    }
+    clock_gettime(CLOCK_MONOTONIC, &after);
+
+    printf("Identity? %s\n", is_identity ? "yes!" : "no!");
+    printf("CPU-OMP: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+    printf("Initial device: %d, num_devices: %d, ndev=%d\n", omp_get_initial_device(), omp_get_num_devices(), ndev);
+
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    ndev = -1;
+    for (int i = 0; i < N; ++i) {
+#pragma omp target device (0)                              \
+  map(to:     A[0:GAUSS_MSIZE], B[0:GAUSS_MSIZE])   \
+  map(from:   C[0:GAUSS_MSIZE], is_identity, ndev)
+    {
+        // Hope it doesn't get optimized away
+        ndev = omp_get_device_num();
+        gauss_multiply_omp(A, B, C);
+        is_identity = gauss_is_identity_omp(C);
+    }
+
+    }
+    clock_gettime(CLOCK_MONOTONIC, &after);
+
+    printf("Identity? %s\n", is_identity ? "yes!" : "no!");
+    printf("OMP-dev0: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+    printf("Initial device: %d, num_devices: %d, ndev=%d\n", omp_get_initial_device(), omp_get_num_devices(), ndev);
+
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    ndev = -1;
+    for (int i = 0; i < N; ++i) {
+#pragma omp target device (4)                       \
   map(to:     A[0:GAUSS_MSIZE], B[0:GAUSS_MSIZE])   \
   map(from:   C[0:GAUSS_MSIZE], is_identity, ndev)
     {
     // Hope it doesn't get optimized away
-      ndev = omp_get_device_num();
+        ndev = omp_get_device_num();
         gauss_multiply_omp(A, B, C);
         is_identity = gauss_is_identity_omp(C);
     }
@@ -240,21 +291,8 @@ int main() {
     clock_gettime(CLOCK_MONOTONIC, &after);
 
     printf("Identity? %s\n", is_identity ? "yes!" : "no!");
-    printf("GPU: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+    printf("OMP-dev4: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
     printf("Initial device: %d, num_devices: %d, ndev=%d\n", omp_get_initial_device(), omp_get_num_devices(), ndev);
-
-    clock_gettime(CLOCK_MONOTONIC, &before);
-
-    {
-    // Hope it doesn't get optimized away
-    for (int i = 0; i < N; ++i) {
-        gauss_multiply(A, B, C);
-        is_identity = gauss_is_identity(C);
+    printf("\n");
     }
-
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &after);
-    printf("Identity? %s\n", is_identity ? "yes!" : "no!");
-    printf("CPU: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
 }
