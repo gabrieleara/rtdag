@@ -6,7 +6,7 @@
 #include <omp.h>
 
 // NOTE: change here to test different matrix sizes (64, 128, etc)
-#define GAUSS_SIZE 256
+#define GAUSS_SIZE 512
 #define GAUSS_MSIZE (GAUSS_SIZE * GAUSS_SIZE)
 
 #define gauss_at(m, i, j) m[i * GAUSS_SIZE + j]
@@ -115,9 +115,22 @@ static void gauss_transpose(const double in[GAUSS_MSIZE],
     }
 }
 
-static void gauss_multiply_omp(const double in1[GAUSS_MSIZE],
+static void gauss_multiply(const double in1[GAUSS_MSIZE],
                            const double in2[GAUSS_MSIZE],
                            double out[GAUSS_MSIZE]) {
+    for (int i = 0; i < GAUSS_SIZE; i++) {
+        for (int j = 0; j < GAUSS_SIZE; j++) {
+            double acc = 0;
+            for (int k = 0; k < GAUSS_SIZE; k++)
+                acc += gauss_at(in1, i, k) * gauss_at(in2, k, j);
+            gauss_at(out, i, j) = acc;
+        }
+    }
+}
+
+static void gauss_multiply_omp(const double *in1,
+                           const double *in2,
+                           double *out) {
 // NOTE: parallelising only the first two loops!
 #pragma omp parallel for collapse(2)
     for (int i = 0; i < GAUSS_SIZE; i++) {
@@ -130,9 +143,13 @@ static void gauss_multiply_omp(const double in1[GAUSS_MSIZE],
     }
 }
 
-static void gauss_multiply(const double in1[GAUSS_MSIZE],
-                           const double in2[GAUSS_MSIZE],
-                           double out[GAUSS_MSIZE]) {
+static void gauss_multiply_omp_target(const double *in1,
+                           const double *in2,
+                                      double *out, int dev) {
+// NOTE: parallelising only the first two loops!
+#pragma omp target teams distribute parallel for device (dev) collapse(2) \
+  map(to:     in1[0:GAUSS_MSIZE], in2[0:GAUSS_MSIZE])   \
+  map(from:   out[0:GAUSS_MSIZE])
     for (int i = 0; i < GAUSS_SIZE; i++) {
         for (int j = 0; j < GAUSS_SIZE; j++) {
             double acc = 0;
@@ -165,12 +182,30 @@ static bool gauss_is_identity(const double in[GAUSS_MSIZE]) {
     return valid;
 }
 
-static bool gauss_is_identity_omp(const double in[GAUSS_MSIZE]) {
+static bool gauss_is_identity_omp(const double *in) {
     bool valid = true;
     bool temp;
     double test;
 
-    #pragma omp parallel for collapse(2) reduction(&& : valid)
+#pragma omp parallel for collapse(2) reduction(&& : valid)
+    for (int i = 0; i < GAUSS_SIZE; ++i) {
+        for (int j = 0; j < GAUSS_SIZE; ++j) {
+            test = (i == j) ? 1.0 : 0.0;
+            temp = gauss_is_equal(gauss_at(in, i, j), test);
+            valid = valid && temp;
+        }
+    }
+
+    return valid;
+}
+
+static bool gauss_is_identity_omp_target(const double *in, int dev) {
+    bool valid = true;
+    bool temp;
+    double test;
+
+#pragma omp target teams distribute parallel for device (dev) collapse(2) reduction(&& : valid) \
+  map(to:     in[0:GAUSS_MSIZE])
     for (int i = 0; i < GAUSS_SIZE; ++i) {
         for (int j = 0; j < GAUSS_SIZE; ++j) {
             test = (i == j) ? 1.0 : 0.0;
@@ -218,81 +253,55 @@ int main() {
     struct timespec before;
     struct timespec after;
 
-#define N 100
+#define N 20
 
     for (int k = 0; k < 10; k++) {
 
     clock_gettime(CLOCK_MONOTONIC, &before);
     int ndev = -1;
-    {
+
     // Hope it doesn't get optimized away
     for (int i = 0; i < N; ++i) {
         gauss_multiply(A, B, C);
         is_identity = gauss_is_identity(C);
     }
 
-    }
     clock_gettime(CLOCK_MONOTONIC, &after);
+    double secs = (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0;
     printf("Identity? %s\n", is_identity ? "yes!" : "no!");
-    printf("CPU-seq: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+    printf("CPU-seq: %g seconds, speed-up %g\n", secs, secs/secs);
 
     clock_gettime(CLOCK_MONOTONIC, &before);
     ndev = -1;
     for (int i = 0; i < N; ++i) {
-    {
         // Hope it doesn't get optimized away
         ndev = omp_get_device_num();
         gauss_multiply_omp(A, B, C);
         is_identity = gauss_is_identity_omp(C);
     }
 
-    }
     clock_gettime(CLOCK_MONOTONIC, &after);
+    double secs2 = (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0;
 
     printf("Identity? %s\n", is_identity ? "yes!" : "no!");
-    printf("CPU-OMP: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+    printf("CPU-OMP: %g seconds, speed-up %g\n", secs2, secs/secs2);
     printf("Initial device: %d, num_devices: %d, ndev=%d\n", omp_get_initial_device(), omp_get_num_devices(), ndev);
 
     clock_gettime(CLOCK_MONOTONIC, &before);
     ndev = -1;
     for (int i = 0; i < N; ++i) {
-#pragma omp target device (0)                              \
-  map(to:     A[0:GAUSS_MSIZE], B[0:GAUSS_MSIZE])   \
-  map(from:   C[0:GAUSS_MSIZE], is_identity, ndev)
-    {
         // Hope it doesn't get optimized away
         ndev = omp_get_device_num();
-        gauss_multiply_omp(A, B, C);
-        is_identity = gauss_is_identity_omp(C);
-    }
-
-    }
-    clock_gettime(CLOCK_MONOTONIC, &after);
-
-    printf("Identity? %s\n", is_identity ? "yes!" : "no!");
-    printf("OMP-dev0: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
-    printf("Initial device: %d, num_devices: %d, ndev=%d\n", omp_get_initial_device(), omp_get_num_devices(), ndev);
-
-    clock_gettime(CLOCK_MONOTONIC, &before);
-    ndev = -1;
-    for (int i = 0; i < N; ++i) {
-#pragma omp target device (4)                       \
-  map(to:     A[0:GAUSS_MSIZE], B[0:GAUSS_MSIZE])   \
-  map(from:   C[0:GAUSS_MSIZE], is_identity, ndev)
-    {
-    // Hope it doesn't get optimized away
-        ndev = omp_get_device_num();
-        gauss_multiply_omp(A, B, C);
-        is_identity = gauss_is_identity_omp(C);
-    }
-
+        gauss_multiply_omp_target(A, B, C, 0);
+        is_identity = gauss_is_identity_omp_target(C, 0);
     }
 
     clock_gettime(CLOCK_MONOTONIC, &after);
+    secs2 = (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0;
 
     printf("Identity? %s\n", is_identity ? "yes!" : "no!");
-    printf("OMP-dev4: %g seconds\n", (after.tv_sec - before.tv_sec) + (after.tv_nsec - before.tv_nsec) / 1000000000.0);
+    printf("OMP-TAR: %g seconds, speed-up %g\n", secs2, secs/secs2);
     printf("Initial device: %d, num_devices: %d, ndev=%d\n", omp_get_initial_device(), omp_get_num_devices(), ndev);
-    printf("\n");
+
     }
 }
