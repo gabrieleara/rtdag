@@ -4,6 +4,10 @@
 #include "rtdag_calib.h"
 #include "rtdag_command.h"
 
+#include "rtgauss.h"
+
+// FIXME: tunable matrix size also for CPU calibration!
+
 //TODO:
 extern int calibrate(unsigned int t);
 extern int test_calibration(unsigned int t);
@@ -21,9 +25,11 @@ int main(int argc, char *argv[]) {
         return program_options.exit_code;
 
     case command_action::CALIBRATE:
+        rtgauss_init(4, RTGAUSS_CPU, 0);
         return calibrate(program_options.duration_us);
 
     case command_action::TEST:
+        rtgauss_init(4, RTGAUSS_CPU, 0);
         return test_calibration(program_options.duration_us);
 
     case command_action::RUN_DAG:

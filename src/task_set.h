@@ -42,6 +42,8 @@
 
 #include "input_base.h"
 
+#include "rtgauss.h"
+
 extern float expected_wcet_ratio_override;
 
 #if RTDAG_FRED_SUPPORT == ON
@@ -476,12 +478,18 @@ private:
     // reads its inputs execute some dummy processing in busi-wait, and sends
     // its outputs to the next tasks. 'period_ns' argument is only used when the
     // task is periodic, which is tipically only the first tasks of the DAG
-    static void task_creator(unsigned seed, const char *dag_name,
-                             const task_type &task,
-                             const unsigned hyperperiod_iters,
-                             const unsigned long dag_deadline_us,
-                             const unsigned long period_us = 0,
-                             float expected_wcet_ratio = 0.95f) {
+    static void
+    task_creator(unsigned seed, const char *dag_name, const task_type &task,
+                 const unsigned hyperperiod_iters,
+                 const unsigned long dag_deadline_us,
+                 const unsigned long period_us = 0,
+                 float expected_wcet_ratio = 0.95f, int matrix_size = 4,
+                 rtgauss_type rtgtype = RTGAUSS_CPU, int omp_target = 0) {
+
+        // Et voilà, after this initialization it should execute correctly
+        // for the CPU or with an OMP target regardless
+        rtgauss_init(matrix_size, rtgtype, omp_target);
+
         char task_name[32];
         strcpy(task_name, task.name.c_str());
         assert((period_us != 0 && period_us > task.wcet) || period_us == 0);
@@ -837,10 +845,11 @@ private:
             exit(1);
         }
 
-        threads.push_back(thread(task_creator, seed, input->get_dagset_name(),
-                                 tasks[0], total_iterations,
-                                 input->get_deadline(), input->get_period(),
-                                 task_expected_wcet_ratio));
+        threads.push_back(
+            thread(task_creator, seed, input->get_dagset_name(), tasks[0],
+                   total_iterations, input->get_deadline(), input->get_period(),
+                   task_expected_wcet_ratio, input->get_matrix_size(0),
+                   RTGAUSS_CPU, input->get_omp_target(0)));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO, "[main] pid %d task 0\n", getpid());
@@ -849,8 +858,20 @@ private:
                 threads.push_back(std::thread(
                     task_creator, seed, input->get_dagset_name(), tasks[i],
                     total_iterations, input->get_deadline(), 0,
-                    task_expected_wcet_ratio));
-            } else if (tasks[i].type == "fred") {
+                    task_expected_wcet_ratio, input->get_matrix_size(i),
+                    RTGAUSS_CPU, input->get_omp_target(i)));
+            }
+#if RTDAG_OMP_SUPPORT == ON
+            else if (tasks[i].type == "omp") {
+                threads.push_back(std::thread(
+                    task_creator, seed, input->get_dagset_name(), tasks[i],
+                    total_iterations, input->get_deadline(), 0,
+                    task_expected_wcet_ratio, input->get_matrix_size(i),
+                    RTGAUSS_CPU, input->get_omp_target(i)));
+            }
+#endif
+#if RTDAG_FRED_SUPPORT == ON
+            else if (tasks[i].type == "fred") {
                 threads.push_back(std::thread(
                     fred_task_creator, seed, input->get_dagset_name(), tasks[i],
                     total_iterations, input->get_deadline(), 0));
@@ -859,7 +880,9 @@ private:
                 //    threads.push_back(std::thread(opencl_task_creator,
                 //    seed, input->get_dagset_name(), tasks[i],
                 //    total_iterations, input->get_deadline(), 0));
-            } else {
+            }
+#endif
+            else {
                 fprintf(stderr, "ERROR: invalid task type '%s' \n",
                         tasks[i].type.c_str());
                 exit(1);

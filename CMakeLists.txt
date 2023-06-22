@@ -16,6 +16,7 @@ add_option_numbered_choice(RTDAG_INPUT_TYPE "yaml" "yaml;header" "How rtdag task
 add_option_bool(RTDAG_COMPILER_BARRIER ON "Injects compiler barriers into code to prevent instruction reordering")
 add_option_bool(RTDAG_MEM_ACCESS OFF "Enable memory rd/wr for every message sent.")
 add_option_bool(RTDAG_COUNT_TICK ON "Enable tick-based emulation of computation. When OFF, uses 'clock_gettime' instead.")
+add_option_bool(RTDAG_OMP_SUPPORT OFF "Enable OpenMP support for task acceleration.")
 
 # Missing Optional Features (I think)
 
@@ -90,6 +91,7 @@ message(STATUS "RTDAG_INPUT_TYPE            ${RTDAG_INPUT_TYPE} (${RTDAG_INPUT_T
 message(STATUS "RTDAG_COMPILER_BARRIER      ${RTDAG_COMPILER_BARRIER}")
 message(STATUS "RTDAG_MEM_ACCESS            ${RTDAG_MEM_ACCESS}")
 message(STATUS "RTDAG_COUNT_TICK            ${RTDAG_COUNT_TICK}")
+message(STATUS "RTDAG_OMP_SUPPORT           ${RTDAG_OMP_SUPPORT}")
 message(STATUS "RTDAG_FRED_SUPPORT          ${RTDAG_FRED_SUPPORT}")
 
 # message_library(OpenCL)
@@ -103,6 +105,7 @@ add_executable(rtdag
     src/rtdag_main.cpp
     src/periodic_task.c
     src/time_aux.c
+    src/rtgauss.cpp
 )
 
 set_target_properties(rtdag PROPERTIES
@@ -121,6 +124,16 @@ target_compile_options(rtdag PRIVATE
 
     -include ${CMAKE_CURRENT_BINARY_DIR}/rtdag_config.h
 )
+
+# FIXME: some way to setup which openmp targets to compile
+# at configuration time
+
+if(RTDAG_OMP_SUPPORT)
+    target_compile_options(rtdag PRIVATE
+        -fopenmp
+        -fopenmp-targets=nvptx64-nvidia-cuda
+    )
+endif()
 
 # target_compile_definitions(rtdag PRIVATE)
 target_include_directories(rtdag

@@ -18,7 +18,9 @@ scenarios
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-// TODO: get constants from somewhere else
+// FIXME: The number of 32 is tied to the flags in the
+// multi_queue (and it's not even technically correct for
+// platforms in which an int/long is not 32 bits...)
 #define MAX_N_TASKS 32
 
 enum class yaml_error_type {
@@ -159,6 +161,8 @@ private:
         long long runtime;
         long long rel_deadline;
         int affinity;
+        int matrix_size;
+        int omp_target = 0;
 #if RTDAG_FRED_SUPPORT == ON
         int fred_id;
 #endif
@@ -224,7 +228,15 @@ public:
         std::vector<long long> task_runtimes;
         std::vector<long long> task_rel_deadlines;
         std::vector<int> task_affinities;
+        std::vector<int> task_matrix_size;
+
+        // Optional per-task attributes:
+        // - tasks_matrix_size: default=4
+        // - tasks_omp_target: default=0
+        std::vector<int> task_omp_target;
         std::vector<std::vector<int>> adj_mat;
+        std::vector<int> task_matrix_size_default(n_tasks, 4);
+        std::vector<int> task_omp_target_default(n_tasks, 0);
 
 #define M_GET_TASKS_VEC(dest, attr)                                            \
     (M_GET_ATTR(dest, attr),                                                   \
@@ -239,8 +251,24 @@ public:
 
         M_GET_ATTR(adj_mat, "adjacency_matrix");
 
+        // Get attribute if available or use default vector
+        task_matrix_size = get_attribute<decltype(task_matrix_size),
+                                         yaml_error_type::YAML_WARN>(
+            input, "tasks_matrix_size", fname, task_matrix_size_default);
+        task_omp_target = get_attribute<decltype(task_omp_target),
+                                         yaml_error_type::YAML_WARN>(
+            input, "tasks_omp_target", fname, task_omp_target_default);
+
+        // Both MUST be the same size as n_tasks, otherwise it is an error
+        // (if the default value is used no issue will arise)
+        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, task_matrix_size,
+                                                  "tasks_matrix_size");
+        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, task_omp_target,
+                                                  "tasks_omp_target");
+
         // Check in both directions
-        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, adj_mat, "adjacency_matrix");
+        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, adj_mat,
+                                                  "adjacency_matrix");
         for (const auto &line : adj_mat) {
             exact_length<yaml_error_type::YAML_ERROR>(n_tasks, line, "adjacency_matrix");
         }
@@ -260,6 +288,8 @@ public:
                 .runtime = task_runtimes[i],
                 .rel_deadline = task_rel_deadlines[i],
                 .affinity = task_affinities[i],
+                .matrix_size = task_matrix_size[i],
+                .omp_target = task_omp_target[i],
 
 #if RTDAG_FRED_SUPPORT == ON
                 .fred_id = fred_ids[i],
@@ -356,6 +386,14 @@ public:
 
     float get_expected_wcet_ratio() const override {
         return expected_wcet_ratio; // FIXME: this may be optional
+    }
+
+    virtual unsigned int get_matrix_size(unsigned t) const override {
+        return tasks[t].matrix_size;
+    }
+
+    virtual unsigned int get_omp_target(unsigned t) const override {
+        return tasks[t].omp_target;
     }
 
 public:
