@@ -121,7 +121,7 @@ public:
         return v;
     }
 
-    TaskSet(std::unique_ptr<input_base> &in_data) : input(move(in_data)) {
+    TaskSet(std::unique_ptr<input_base> &in_data) : input(std::move(in_data)) {
         pid_list = nullptr;
         pthread_barrier_t *p_bar =
             (pthread_barrier_t *)malloc(sizeof(pthread_barrier_t));
@@ -478,13 +478,12 @@ private:
     // reads its inputs execute some dummy processing in busi-wait, and sends
     // its outputs to the next tasks. 'period_ns' argument is only used when the
     // task is periodic, which is tipically only the first tasks of the DAG
-    static void
-    task_creator(unsigned seed, const char *dag_name, const task_type &task,
-                 const unsigned hyperperiod_iters,
-                 const unsigned long dag_deadline_us,
-                 const unsigned long period_us = 0,
-                 float expected_wcet_ratio = 0.95f, int matrix_size = 4,
-                 rtgauss_type rtgtype = RTGAUSS_CPU, int omp_target = 0) {
+    static void task_creator(
+        unsigned seed, const char *dag_name, const task_type &task,
+        const unsigned hyperperiod_iters, const unsigned long dag_deadline_us,
+        const unsigned long period_us = 0, float expected_wcet_ratio = 0.95f,
+        int matrix_size = 4, rtgauss_type rtgtype = RTGAUSS_CPU,
+        int omp_target = 0, float ticks_per_us = 1) {
 
         // Et voilà, after this initialization it should execute correctly
         // for the CPU or with an OMP target regardless
@@ -671,7 +670,7 @@ private:
             // in power consumption
 #if RTDAG_COUNT_TICK == ON
             // fprintf(stderr, "%s %ld\n", task_name, wcet);
-            Count_Time_Ticks(wcet);
+            Count_Time_Ticks(wcet, ticks_per_us);
 #else
             Count_Time(wcet);
 #endif
@@ -845,11 +844,11 @@ private:
             exit(1);
         }
 
-        threads.push_back(
-            thread(task_creator, seed, input->get_dagset_name(), tasks[0],
-                   total_iterations, input->get_deadline(), input->get_period(),
-                   task_expected_wcet_ratio, input->get_matrix_size(0),
-                   RTGAUSS_CPU, input->get_omp_target(0)));
+        threads.push_back(thread(
+            task_creator, seed, input->get_dagset_name(), tasks[0],
+            total_iterations, input->get_deadline(), input->get_period(),
+            task_expected_wcet_ratio, input->get_matrix_size(0), RTGAUSS_CPU,
+            input->get_omp_target(0), input->get_ticks_per_us(0)));
         thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
         pid_list->push_back(thread_id);
         LOG(INFO, "[main] pid %d task 0\n", getpid());
@@ -859,7 +858,8 @@ private:
                     task_creator, seed, input->get_dagset_name(), tasks[i],
                     total_iterations, input->get_deadline(), 0,
                     task_expected_wcet_ratio, input->get_matrix_size(i),
-                    RTGAUSS_CPU, input->get_omp_target(i)));
+                    RTGAUSS_CPU, input->get_omp_target(i),
+                    input->get_ticks_per_us(i)));
             }
 #if RTDAG_OMP_SUPPORT == ON
             else if (tasks[i].type == "omp") {
@@ -867,7 +867,8 @@ private:
                     task_creator, seed, input->get_dagset_name(), tasks[i],
                     total_iterations, input->get_deadline(), 0,
                     task_expected_wcet_ratio, input->get_matrix_size(i),
-                    RTGAUSS_CPU, input->get_omp_target(i)));
+                    RTGAUSS_OMP, input->get_omp_target(i),
+                    input->get_ticks_per_us(i)));
             }
 #endif
 #if RTDAG_FRED_SUPPORT == ON

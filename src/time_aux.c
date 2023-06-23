@@ -1,4 +1,6 @@
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,7 +20,7 @@ static inline uint64_t timespec_sub_us(const struct timespec *ts1,
 
 // ----------------------- Public function definitions ---------------------- //
 
-uint64_t micros() {
+uint64_t micros(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     uint64_t us =
@@ -45,7 +47,8 @@ uint64_t Count_Time(uint64_t duration_usec) {
 
 // This variable must be set by the user before calling Count_Time_Ticks().
 float ticks_per_us = 0;
-uint64_t Count_Time_Ticks(uint64_t usec) {
+
+uint64_t Count_Time_Ticks(uint64_t usec, float ticks_per_us) {
     uint64_t ticks = ticks_per_us * usec;
     return Count_Ticks(ticks);
 }

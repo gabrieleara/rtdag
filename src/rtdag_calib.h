@@ -61,7 +61,7 @@ int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
 
     COMPILER_BARRIER();
 
-    uint64_t retv = Count_Time_Ticks(duration_us);
+    uint64_t retv = Count_Time_Ticks(duration_us, ticks_per_us);
     (void)(retv);
 
     COMPILER_BARRIER();

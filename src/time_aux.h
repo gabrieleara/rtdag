@@ -47,7 +47,7 @@ extern uint64_t micros(void);
 #define ATTRIBUTE_DISABLE_OPTIMIZATIONS __attribute__((optimize("0")))
 #elif defined(__clang__) &&                                                    \
     (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 3))
-#define ATTRIBUTE_DISABLE_OPTIMIZATIONS __attribute__((optnone));
+#define ATTRIBUTE_DISABLE_OPTIMIZATIONS __attribute__((optnone))
 #else
 #error "Unsupported compiler. Expecting gcc 7.0 or newer, or clang 10 or newer"
 #endif
@@ -57,9 +57,11 @@ extern uint64_t micros(void);
 // source of time_aux.c.
 extern uint64_t Count_Ticks(uint64_t ticks) ATTRIBUTE_DISABLE_OPTIMIZATIONS;
 
-// Execute for an amount of ticks derived from the time span indicated by usec
-// and the content of the global variable ticks_per_us.
-extern uint64_t Count_Time_Ticks(uint64_t usec) ATTRIBUTE_DISABLE_OPTIMIZATIONS;
+// Execute for an amount of ticks derived from the time span indicated by
+// usec and ticks_per_us (use `ticks_per_us` global variable if you don't
+// want special time accounting)
+extern uint64_t Count_Time_Ticks(uint64_t usec, float ticks_per_us)
+    ATTRIBUTE_DISABLE_OPTIMIZATIONS;
 
 // Actively wait for the specified amount of microseconds, by repeatedly
 // checking whether the time has elapsed.

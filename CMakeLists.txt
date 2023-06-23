@@ -118,7 +118,6 @@ target_compile_options(rtdag PRIVATE
     -Wall
     -Wextra
     -Wpedantic
-    -Wno-variadic-functions
     -Wno-long-long
     -Wno-variadic-macros
 
@@ -129,10 +128,22 @@ target_compile_options(rtdag PRIVATE
 # at configuration time
 
 if(RTDAG_OMP_SUPPORT)
+    message(STATUS "Testing for OMP support...")
+    find_package(OpenMP)
+
+    if (OpenMP_FOUND)
+        message(STATUS "OpenMP found: ${OpenMP_FOUND}")
+    else()
+        message(FATAL_ERROR "OpenMP support not found!!!")
+    endif()
+
     target_compile_options(rtdag PRIVATE
         -fopenmp
         -fopenmp-targets=nvptx64-nvidia-cuda
+        "${OpenMP_CXX_FLAGS}"
     )
+
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda ${OpenMP_CXX_FLAGS}")
 endif()
 
 # target_compile_definitions(rtdag PRIVATE)
@@ -154,6 +165,9 @@ endif()
 
 # target_optional_link_library(rtdag Fred)
 # target_optional_link_library(rtdag OpenCL)
+
+# Required to make clang see the libc++?
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
 
 
 # ================== INSTALL PROPERTIES ================== #

@@ -13,6 +13,7 @@ scenarios
 */
 
 #include "input_base.h"
+#include "time_aux.h"
 
 #include <string>
 #include <vector>
@@ -28,7 +29,7 @@ enum class yaml_error_type {
     YAML_ERROR,
 };
 
-template <class...>
+template <yaml_error_type...>
 constexpr std::false_type always_false{};
 
 template <yaml_error_type error>
@@ -79,18 +80,13 @@ static inline YAML::Node read_yaml_file(const char *fname) {
     }
 }
 
-template <typename T>
-concept has_size = requires(const T &v) {
-    { v.size() } -> std::same_as<std::size_t>;
-};
-
 template <yaml_error_type error>
-static inline void exact_length(int expected, const has_size auto &cont,
+static inline void exact_length(int expected, size_t size,
                                 const std::string &name) {
-    if (expected < 0 || unsigned(expected) != cont.size()) {
+    if (expected < 0 || unsigned(expected) != size) {
         fprintf(stderr,
                 "%s: attribute %s has wrong size: %d expected, found %lu\n",
-                get_error_msg<error>(), name.c_str(), expected, cont.size());
+                get_error_msg<error>(), name.c_str(), expected, size);
         exit_if_fatal_error<error>();
     }
 }
@@ -163,6 +159,7 @@ private:
         int affinity;
         int matrix_size;
         int omp_target = 0;
+        float ticks_per_us = -1;
 #if RTDAG_FRED_SUPPORT == ON
         int fred_id;
 #endif
@@ -182,8 +179,8 @@ public:
         YAML::Node input = read_yaml_file(fname);
 
 #define M_GET_ATTR(dest, attr)                                                 \
-    (dest =                                                                    \
-         get_attribute<decltype(dest), yaml_error_type::YAML_ERROR>(input, attr, fname))
+    (dest = get_attribute<decltype(dest), yaml_error_type::YAML_ERROR>(        \
+         input, attr, fname))
 
         M_GET_ATTR(repetitions, "repetitions");
         M_GET_ATTR(hyperperiod, "hyperperiod");
@@ -195,7 +192,8 @@ public:
 
         int n_cpus;
         M_GET_ATTR(n_cpus, "n_cpus");
-        exact_length<yaml_error_type::YAML_WARN>(n_cpus, cpu_freqs, "cpus_freq");
+        exact_length<yaml_error_type::YAML_WARN>(n_cpus, cpu_freqs.size(),
+                                                 "cpus_freq");
 
         M_GET_ATTR(dag_name, "dag_name");
         M_GET_ATTR(n_edges, "n_edges");
@@ -229,6 +227,7 @@ public:
         std::vector<long long> task_rel_deadlines;
         std::vector<int> task_affinities;
         std::vector<int> task_matrix_size;
+        std::vector<float> task_ticks_us;
 
         // Optional per-task attributes:
         // - tasks_matrix_size: default=4
@@ -237,10 +236,12 @@ public:
         std::vector<std::vector<int>> adj_mat;
         std::vector<int> task_matrix_size_default(n_tasks, 4);
         std::vector<int> task_omp_target_default(n_tasks, 0);
+        std::vector<float> task_ticks_us_default(n_tasks, -1);
 
 #define M_GET_TASKS_VEC(dest, attr)                                            \
     (M_GET_ATTR(dest, attr),                                                   \
-     exact_length<yaml_error_type::YAML_ERROR>(n_tasks, dest, attr), (dest))
+     exact_length<yaml_error_type::YAML_ERROR>(n_tasks, dest.size(), attr),    \
+     (dest))
 
         M_GET_TASKS_VEC(task_names, "tasks_name");
         M_GET_TASKS_VEC(task_types, "tasks_type");
@@ -251,26 +252,33 @@ public:
 
         M_GET_ATTR(adj_mat, "adjacency_matrix");
 
-        // Get attribute if available or use default vector
-        task_matrix_size = get_attribute<decltype(task_matrix_size),
-                                         yaml_error_type::YAML_WARN>(
-            input, "tasks_matrix_size", fname, task_matrix_size_default);
-        task_omp_target = get_attribute<decltype(task_omp_target),
-                                         yaml_error_type::YAML_WARN>(
-            input, "tasks_omp_target", fname, task_omp_target_default);
+#define M_GET_ATTR_OPT(dest, attr, def_v)                                      \
+    dest = get_attribute<decltype(dest), yaml_error_type::YAML_WARN>(          \
+        input, attr, fname, def_v)
 
-        // Both MUST be the same size as n_tasks, otherwise it is an error
-        // (if the default value is used no issue will arise)
-        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, task_matrix_size,
-                                                  "tasks_matrix_size");
-        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, task_omp_target,
-                                                  "tasks_omp_target");
+#define M_GET_TASKS_VEC_OPT(dest, attr, def_v)                                 \
+    (M_GET_ATTR_OPT(dest, attr, def_v),                                        \
+     exact_length<yaml_error_type::YAML_WARN>(n_tasks, dest.size(), attr),     \
+     (dest))
+
+        // Get attribute if available or use default vector.
+        //
+        // NOTE: if an attribute is read from the file, it MUST be the
+        // right length! If the default value is used no issue will arise
+        // because it is already the right length.
+        M_GET_TASKS_VEC_OPT(task_matrix_size, "tasks_matrix_size",
+                            task_matrix_size_default);
+        M_GET_TASKS_VEC_OPT(task_omp_target, "tasks_omp_size",
+                            task_omp_target_default);
+        M_GET_TASKS_VEC_OPT(task_ticks_us, "tasks_ticks_per_us",
+                            task_ticks_us_default);
 
         // Check in both directions
-        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, adj_mat,
+        exact_length<yaml_error_type::YAML_ERROR>(n_tasks, adj_mat.size(),
                                                   "adjacency_matrix");
         for (const auto &line : adj_mat) {
-            exact_length<yaml_error_type::YAML_ERROR>(n_tasks, line, "adjacency_matrix");
+            exact_length<yaml_error_type::YAML_ERROR>(n_tasks, line.size(),
+                                                      "adjacency_matrix");
         }
 
         // FIXME: fred_ids
@@ -290,6 +298,7 @@ public:
                 .affinity = task_affinities[i],
                 .matrix_size = task_matrix_size[i],
                 .omp_target = task_omp_target[i],
+                .ticks_per_us = task_ticks_us[i],
 
 #if RTDAG_FRED_SUPPORT == ON
                 .fred_id = fred_ids[i],
@@ -388,12 +397,19 @@ public:
         return expected_wcet_ratio; // FIXME: this may be optional
     }
 
-    virtual unsigned int get_matrix_size(unsigned t) const override {
+    unsigned int get_matrix_size(unsigned t) const override {
         return tasks[t].matrix_size;
     }
 
-    virtual unsigned int get_omp_target(unsigned t) const override {
+    unsigned int get_omp_target(unsigned t) const override {
         return tasks[t].omp_target;
+    }
+
+    float get_ticks_per_us(unsigned t) const override {
+        float v = tasks[t].ticks_per_us;
+        // Return global variable if value is not supplied (basically if
+        // the value is positive it overrides the global variable)
+        return v > 0 ? v : ticks_per_us;
     }
 
 public:

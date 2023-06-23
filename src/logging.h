@@ -27,20 +27,20 @@
     do {                                                                       \
         if constexpr (level <= THE_LOG_LEVEL) {                                \
             std::printf("[%7s] %s:%d: %s(): " format, #level, __FILE__,   \
-                        __LINE__, __func__, ##__VA_ARGS__);                    \
+                        __LINE__, __func__ __VA_OPT__(,) __VA_ARGS__);                    \
         }                                                                      \
     } while (0)
 
-#define LOG_DEBUG(format, ...) LOG(DEBUG, format, ##__VA_ARGS__)
-#define LOG_INFO(format, ...) LOG(INFO, format, ##__VA_ARGS__)
-#define LOG_WARNING(format, ...) LOG(WARNING, format, ##__VA_ARGS__)
-#define LOG_ERROR(format, ...) LOG(ERROR, format, ##__VA_ARGS__)
+#define LOG_DEBUG(format, ...) LOG(DEBUG, format __VA_OPT__(,) __VA_ARGS__)
+#define LOG_INFO(format, ...) LOG(INFO, format __VA_OPT__(,) __VA_ARGS__)
+#define LOG_WARNING(format, ...) LOG(WARNING, format __VA_OPT__(,) __VA_ARGS__)
+#define LOG_ERROR(format, ...) LOG(ERROR, format __VA_OPT__(,) __VA_ARGS__)
 
 // These stay in the program regardless of DEBUG or LOG_LEVEL configurations
 #define check(cond, format, ...)                                               \
     do {                                                                       \
         if (!(cond)) {                                                         \
-            std::printf("ERROR: " format "\n", ##__VA_ARGS__);                 \
+            std::printf("ERROR: " format "\n" __VA_OPT__(,) __VA_ARGS__);                 \
             std::exit(1);                                                      \
         }                                                                      \
     } while (0)
