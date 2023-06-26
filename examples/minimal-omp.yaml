@@ -10,15 +10,15 @@ hyperperiod: 3000
 dag_period: 3000 # in us
 dag_deadline: 3000 # in us
 tasks_name: ["n000","n001","n002","n003"]
-expected_wcet_ratio: .95
-tasks_matrix_size: [4, 4, 4, 4]
-tasks_omp_target: [0,0,0,0]
-tasks_ticks_per_us: [0,0,0,0]
-# it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc.
-# currently only cpu and fred are implemented
 tasks_type: ["cpu","cpu","cpu","cpu"]
+expected_wcet_ratio: .95
+tasks_matrix_size: [4, 512, 4, 4]
+tasks_omp_target: [0,0,0,0]
+tasks_ticks_per_us: [0,1,0,0]
+# it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc.
 # The actual task computation time is decided randomly in runtime
-tasks_wcet: [500,500,500,500] # in us.
+tasks_prio: [0,99,0,0] # use FIFO instead of DEADLINE if > 0
+tasks_wcet: [500,1,500,500] # in us.
 tasks_runtime: [500,500,500,500] # in us.
 # The relative deadline of each task.
 # make sure that the sum of the longest path must be <= DAG_DEADLINE since

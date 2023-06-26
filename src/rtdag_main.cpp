@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
         return program_options.exit_code;
 
     case command_action::CALIBRATE:
+        // FIXME: pre-charge code on the GPU
         rtgauss_init(4, RTGAUSS_CPU, 0);
         return calibrate(program_options.duration_us);
 

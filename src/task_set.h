@@ -83,6 +83,7 @@ typedef struct {
                   // must be run on the FPGA
     int affinity; // which core the task is mapped. negative value means that
                   // the task is not pinned
+    unsigned long prio;
     unsigned long wcet;     // in us
     unsigned long runtime;  // in us. this is the task execution time assuming
                             // the ref island at top freq
@@ -163,6 +164,7 @@ public:
 #if RTDAG_FRED_SUPPORT == ON
             tasks[i].fred_id = input->get_fred_id(i);
 #endif
+            tasks[i].prio = input->get_tasks_prio(i);
             tasks[i].wcet = input->get_tasks_wcet(i);
             tasks[i].runtime = input->get_tasks_runtime(i);
             tasks[i].deadline = input->get_tasks_rel_deadline(i);
@@ -504,11 +506,12 @@ private:
         }
 
         // sched_deadline does not support tasks shorter than 1024 ns
-        if (task.wcet <= 1) {
-            fprintf(stderr, "ERROR: sched_deadline does not support tasks "
-                            "shorter than 1024 ns.\n");
-            exit(1);
-        }
+        //        if (task.wcet <= 1) {
+        //            fprintf(stderr, "ERROR: sched_deadline does not support
+        //            tasks "
+        //                            "shorter than 1024 ns.\n");
+        //            exit(1);
+        //        }
 
         // just to make sure this task is not a fred task by mistake
         assert(task.fred_id == -1);
@@ -576,7 +579,8 @@ private:
         // period of the tasks is greater).
         LOG(DEBUG, "task %s: using the dline as runtime (pure EDF, no CBS)\n",
             task_name);
-        set_sched_deadline(task.deadline, task.deadline, task.deadline);
+        set_sched_deadline(task.prio, task.deadline, task.deadline,
+                           task.deadline);
 
         // period definitions - used only by the starting task
         struct period_info pinfo;
@@ -971,7 +975,7 @@ private:
         return checksum;
     }
 
-    static void set_sched_deadline(unsigned long runtime,
+    static void set_sched_deadline(unsigned long prio, unsigned long runtime,
                                    unsigned long deadline,
                                    unsigned long period) {
         struct sched_attr sa;
@@ -979,23 +983,30 @@ private:
             perror("ERROR sched_getattr()");
             exit(1);
         }
-        sa.sched_policy = SCHED_DEADLINE;
-        // time in nanoseconds!!!
-        sa.sched_runtime = u64(runtime) * 1000;
-        sa.sched_deadline = u64(deadline) * 1000;
-        sa.sched_period = u64(period) * 1000;
 
 #define SCHED_FLAG_RESET_ON_FORK 0x01
 #define SCHED_FLAG_RECLAIM 0x02
 #define SCHED_FLAG_DL_OVERRUN 0x04
 
-        LOG(DEBUG, "sched_setattr attributes: DL_C=%ld DL_D=%ld DL_T=%ld\n",
-            sa.sched_runtime, sa.sched_deadline, sa.sched_period);
+        if (prio > 0) {
+            // override, use regular RT prio instead
+            sa.sched_policy = SCHED_FIFO;
+            sa.sched_priority = prio;
+            LOG(DEBUG, "sched_setattr attributes: P=%u\n", sa.sched_priority);
+        } else {
+            sa.sched_policy = SCHED_DEADLINE;
+            // time in nanoseconds!!!
+            sa.sched_runtime = u64(runtime) * 1000;
+            sa.sched_deadline = u64(deadline) * 1000;
+            sa.sched_period = u64(period) * 1000;
+            LOG(DEBUG, "sched_setattr attributes: DL_C=%ld DL_D=%ld DL_T=%ld\n",
+                sa.sched_runtime, sa.sched_deadline, sa.sched_period);
+        }
 
         // sa.sched_flags |= SCHED_FLAG_RECLAIM;
         if (sched_setattr(0, &sa, 0) < 0) {
             perror("ERROR sched_setattr()");
-            printf("ERROR: make sure you run rt-dag with 'sudo' and also 'echo "
+            printf("ERROR: make sure you run rtdag with 'sudo' and also 'echo "
                    "-1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us' is "
                    "executed before running rt-dag\n");
             exit(1);

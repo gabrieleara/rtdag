@@ -153,6 +153,7 @@ private:
     struct task_data {
         string name;
         string type;
+        long long prio;
         long long wcet;
         long long runtime;
         long long rel_deadline;
@@ -222,6 +223,7 @@ public:
 
         std::vector<string> task_names;
         std::vector<string> task_types;
+        std::vector<long long> task_prios;
         std::vector<long long> task_wcets;
         std::vector<long long> task_runtimes;
         std::vector<long long> task_rel_deadlines;
@@ -237,6 +239,7 @@ public:
         std::vector<int> task_matrix_size_default(n_tasks, 4);
         std::vector<int> task_omp_target_default(n_tasks, 0);
         std::vector<float> task_ticks_us_default(n_tasks, -1);
+        std::vector<long long> task_prios_default(n_tasks, 0);
 
 #define M_GET_TASKS_VEC(dest, attr)                                            \
     (M_GET_ATTR(dest, attr),                                                   \
@@ -268,10 +271,12 @@ public:
         // because it is already the right length.
         M_GET_TASKS_VEC_OPT(task_matrix_size, "tasks_matrix_size",
                             task_matrix_size_default);
-        M_GET_TASKS_VEC_OPT(task_omp_target, "tasks_omp_size",
+        M_GET_TASKS_VEC_OPT(task_omp_target, "tasks_omp_target",
                             task_omp_target_default);
         M_GET_TASKS_VEC_OPT(task_ticks_us, "tasks_ticks_per_us",
                             task_ticks_us_default);
+
+        M_GET_TASKS_VEC_OPT(task_prios, "tasks_prio", task_prios_default);
 
         // Check in both directions
         exact_length<yaml_error_type::YAML_ERROR>(n_tasks, adj_mat.size(),
@@ -292,6 +297,7 @@ public:
             tasks[i] = {
                 .name = task_names[i],
                 .type = task_types[i],
+                .prio = task_prios[i],
                 .wcet = task_wcets[i],
                 .runtime = task_runtimes[i],
                 .rel_deadline = task_rel_deadlines[i],
@@ -372,6 +378,10 @@ public:
         return tasks[t].fred_id;
     }
 #endif
+
+    unsigned long get_tasks_prio(unsigned t) const override {
+        return tasks[t].prio;
+    }
 
     unsigned long get_tasks_runtime(unsigned t) const override {
         return tasks[t].runtime;
