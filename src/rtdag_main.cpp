@@ -1,17 +1,10 @@
 #include <cstdlib>
 
-#include "rtdag_run.h"
 #include "rtdag_calib.h"
 #include "rtdag_command.h"
+#include "rtdag_run.h"
 
 #include "rtgauss.h"
-
-// FIXME: tunable matrix size also for CPU calibration!
-
-//TODO:
-extern int calibrate(unsigned int t);
-extern int test_calibration(unsigned int t);
-extern int run_dag(const std::string);
 
 float expected_wcet_ratio_override = 0.0;
 
@@ -26,11 +19,13 @@ int main(int argc, char *argv[]) {
 
     case command_action::CALIBRATE:
         // FIXME: pre-charge code on the GPU
-        rtgauss_init(4, RTGAUSS_CPU, 0);
+        rtgauss_init(program_options.rtg_msize, program_options.rtg_type,
+                     program_options.rtg_target);
         return calibrate(program_options.duration_us);
 
     case command_action::TEST:
-        rtgauss_init(4, RTGAUSS_CPU, 0);
+        rtgauss_init(program_options.rtg_msize, program_options.rtg_type,
+                     program_options.rtg_target);
         return test_calibration(program_options.duration_us);
 
     case command_action::RUN_DAG:
