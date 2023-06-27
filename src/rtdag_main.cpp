@@ -17,16 +17,24 @@ int main(int argc, char *argv[]) {
         usage(argv[0]);
         return program_options.exit_code;
 
-    case command_action::CALIBRATE:
+    case command_action::CALIBRATE: {
         // FIXME: pre-charge code on the GPU
         rtgauss_init(program_options.rtg_msize, program_options.rtg_type,
                      program_options.rtg_target);
+        ofstream nullf("/dev/null");
+        auto retv = waste_calibrate();
+        nullf << retv;
         return calibrate(program_options.duration_us);
+    }
 
-    case command_action::TEST:
+    case command_action::TEST: {
         rtgauss_init(program_options.rtg_msize, program_options.rtg_type,
                      program_options.rtg_target);
+        ofstream nullf("/dev/null");
+        auto retv = waste_calibrate();
+        nullf << retv;
         return test_calibration(program_options.duration_us);
+    }
 
     case command_action::RUN_DAG:
         if (program_options.exit_code != EXIT_SUCCESS) {

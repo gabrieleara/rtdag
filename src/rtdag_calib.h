@@ -50,6 +50,16 @@ int get_ticks_per_us(bool required) {
     return EXIT_SUCCESS;
 }
 
+int waste_calibrate() {
+    COMPILER_BARRIER();
+
+    uint64_t retv = Count_Time_Ticks(1, 1);
+
+    COMPILER_BARRIER();
+
+    return retv;
+}
+
 int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
     int res = get_ticks_per_us(true);
     if (res)

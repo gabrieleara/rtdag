@@ -490,6 +490,13 @@ private:
         // Et voilà, after this initialization it should execute correctly
         // for the CPU or with an OMP target regardless
         rtgauss_init(matrix_size, rtgtype, omp_target);
+#if RTDAG_OMP_SUPPORT == ON
+        if (rtgtype == RTGAUSS_OMP) {
+            // Pre-load code on the GPU for fast execution later on!
+            int retv = waste_calibrate();
+            LOG(DEBUG, "Waste calibrate value %d\n", retv);
+        }
+#endif
 
         char task_name[32];
         strcpy(task_name, task.name.c_str());
