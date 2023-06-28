@@ -10,8 +10,9 @@ hyperperiod: 300000
 dag_period: 300000 # in us
 dag_deadline: 300000 # in us
 tasks_name: ["n000","n001","n002","n003"]
-tasks_type: ["cpu","cpu","cpu","cpu"]
 # it tells how the task must be compiled: cpu, fred, opencl, openmp, cuda, etc.
+# currently only cpu and fred are implemented
+tasks_type: ["cpu","cpu","cpu","cpu"]
 # The actual task computation time is decided randomly in runtime
 tasks_wcet: [50000,50000,50000,50000] # in us.
 tasks_runtime: [50000,50000,50000,50000] # in us.
