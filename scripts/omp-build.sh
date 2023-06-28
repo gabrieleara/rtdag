@@ -12,6 +12,6 @@ if [ "$1" = clean ] ; then
     rm -rf build/
 fi
 
-cmake -S . -B build -DRTDAG_OMP_SUPPORT=ON
+cmake -S . -B build -DRTDAG_OMP_SUPPORT=ON # -DRTDAG_LOG_LEVEL=info
 cmake --build build -j
 # ldd build/rtdag

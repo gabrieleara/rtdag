@@ -31,7 +31,7 @@ function main() {
     export LD_LIBRARY_PATH="$SCRIPT_PATH/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     echo "matrix_size duration_cpu_us duration_omp_us"
-    for msize in 1024 896 768 640 512 384 256 192 128 64 32 16 8 4; do
+    for msize in 64 100 110 127 128; do
         echo "" >&2
         echo -n "CPU $msize: " >&2
         t_cpu=$(run_rtdag_many_times cpu $msize | avg)
