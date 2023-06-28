@@ -63,13 +63,13 @@ static void gauss_mul(const double *in1, const double *in2, double *out,
 }
 
 #if RTDAG_OMP_SUPPORT == ON
-// static void gauss_mul_omp(const double *in1, const double *in2, double *out,
-//                           const int size) {
-// // This macro will parallelize only the first two loops
-// #pragma omp parallel for collapse(2) map(to : in1[0 : size], in2[0 : size])    \
-//     map(from : out[0 : size])
-//     GAUSS_MUL_BODY(in1, in2, out, size)
-// }
+static void gauss_mul_omp(const double *in1, const double *in2, double *out,
+                          const int size) {
+// This macro will parallelize only the first two loops
+#pragma omp parallel for collapse(2) map(to : in1[0 : size], in2[0 : size])    \
+    map(from : out[0 : size])
+    GAUSS_MUL_BODY(in1, in2, out, size)
+}
 
 static void gauss_mul_omp_target(const double *in1, const double *in2,
                                  double *out, const int size, int dev) {
@@ -104,12 +104,12 @@ static bool gauss_is_eye(const double *in, const int size) {
 }
 
 #if RTDAG_OMP_SUPPORT == ON
-// static bool gauss_is_eye_omp(const double *in, const int size) {
-//     bool valid = true;
-// #pragma omp parallel for collapse(2) reduction(&& : valid)
-//     GAUSS_IS_IDENTITY_BODY(in, size, valid)
-//     return valid;
-// }
+static bool gauss_is_eye_omp(const double *in, const int size) {
+    bool valid = true;
+#pragma omp parallel for collapse(2) reduction(&& : valid)
+    GAUSS_IS_IDENTITY_BODY(in, size, valid)
+    return valid;
+}
 
 static bool gauss_is_eye_omp_target(const double *in, const int size, int dev) {
     bool valid = true;
