@@ -99,7 +99,6 @@ private:
     //
     // hyperperiod: long # in us
     // repetitions: int
-    // expected_wcet_ratio: float
     //
     // n_cpus: int
     // cpus_freq: int[] # in MHz
@@ -122,6 +121,8 @@ private:
     // tasks_affinity: int[]
     // fred_id: int[] # -1 if no fred id
     //
+    // # NOTE: there are other attributes not represented in this comment now!
+    //
     // adjacency_matrix: int[][]
     //
     // # (NOTE: sum of the longest path deadlines MUST be <= dag_deadline)
@@ -130,7 +131,6 @@ private:
     // ----------------- EXPERIMENT DATA -----------------
     long long hyperperiod;
     int repetitions;
-    float expected_wcet_ratio = 1.0f;
 
     // We do not care of accessing these fast, we can accept
     // vector's double indirection and gain flexibility in
@@ -161,6 +161,7 @@ private:
         int matrix_size;
         int omp_target = 0;
         float ticks_per_us = -1;
+        float expected_wcet_ratio = 1;
 #if RTDAG_FRED_SUPPORT == ON
         int fred_id;
 #endif
@@ -186,10 +187,6 @@ public:
         M_GET_ATTR(repetitions, "repetitions");
         M_GET_ATTR(hyperperiod, "hyperperiod");
         M_GET_ATTR(cpu_freqs, "cpus_freq");
-
-        // This attribute is optional, use 1.0 as default value
-        expected_wcet_ratio =
-            get_attribute<float>(input, "expected_wcet_ratio", fname, 1.0f);
 
         int n_cpus;
         M_GET_ATTR(n_cpus, "n_cpus");
@@ -230,16 +227,16 @@ public:
         std::vector<int> task_affinities;
         std::vector<int> task_matrix_size;
         std::vector<float> task_ticks_us;
+        std::vector<float> task_ewr;
 
         // Optional per-task attributes:
-        // - tasks_matrix_size: default=4
-        // - tasks_omp_target: default=0
         std::vector<int> task_omp_target;
         std::vector<std::vector<int>> adj_mat;
         std::vector<int> task_matrix_size_default(n_tasks, 4);
         std::vector<int> task_omp_target_default(n_tasks, 0);
         std::vector<float> task_ticks_us_default(n_tasks, -1);
         std::vector<long long> task_prios_default(n_tasks, 0);
+        std::vector<float> task_ewr_default(n_tasks, 1);
 
 #define M_GET_TASKS_VEC(dest, attr)                                            \
     (M_GET_ATTR(dest, attr),                                                   \
@@ -275,6 +272,8 @@ public:
                             task_omp_target_default);
         M_GET_TASKS_VEC_OPT(task_ticks_us, "tasks_ticks_per_us",
                             task_ticks_us_default);
+        M_GET_TASKS_VEC_OPT(task_ewr, "tasks_expected_wcet_ratio",
+                            task_ewr_default);
 
         M_GET_TASKS_VEC_OPT(task_prios, "tasks_prio", task_prios_default);
 
@@ -305,6 +304,7 @@ public:
                 .matrix_size = task_matrix_size[i],
                 .omp_target = task_omp_target[i],
                 .ticks_per_us = task_ticks_us[i],
+                .expected_wcet_ratio = task_ewr[i],
 
 #if RTDAG_FRED_SUPPORT == ON
                 .fred_id = fred_ids[i],
@@ -403,8 +403,8 @@ public:
         return adjacency_matrix[t1][t2];
     }
 
-    float get_expected_wcet_ratio() const override {
-        return expected_wcet_ratio; // FIXME: this may be optional
+    float get_tasks_expected_wcet_ratio(unsigned t) const override {
+        return tasks[t].expected_wcet_ratio; // FIXME: this may be optional
     }
 
     unsigned int get_matrix_size(unsigned t) const override {

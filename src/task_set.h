@@ -44,8 +44,6 @@
 
 #include "rtgauss.h"
 
-extern float expected_wcet_ratio_override;
-
 #if RTDAG_FRED_SUPPORT == ON
 #include "fred_lib.h"
 typedef uint64_t data_t;
@@ -480,12 +478,14 @@ private:
     // reads its inputs execute some dummy processing in busi-wait, and sends
     // its outputs to the next tasks. 'period_ns' argument is only used when the
     // task is periodic, which is tipically only the first tasks of the DAG
-    static void task_creator(
-        unsigned seed, const char *dag_name, const task_type &task,
-        const unsigned hyperperiod_iters, const unsigned long dag_deadline_us,
-        const unsigned long period_us = 0, float expected_wcet_ratio = 0.95f,
-        int matrix_size = 4, rtgauss_type rtgtype = RTGAUSS_CPU,
-        int omp_target = 0, float ticks_per_us = 1) {
+    static void task_creator(unsigned seed, const char *dag_name,
+                             const task_type &task,
+                             const unsigned hyperperiod_iters,
+                             const unsigned long dag_deadline_us,
+                             const unsigned long period_us = 0,
+                             float expected_wcet_ratio = 1, int matrix_size = 4,
+                             rtgauss_type rtgtype = RTGAUSS_CPU,
+                             int omp_target = 0, float ticks_per_us = 1) {
 
         // Et voilà, after this initialization it should execute correctly
         // for the CPU or with an OMP target regardless
@@ -506,11 +506,6 @@ private:
         (void)seed;
 
         pthread_setname_np(pthread_self(), task_name);
-
-        // Command-line option supersedes specification in input file
-        if (expected_wcet_ratio_override > 0.0) {
-            expected_wcet_ratio = expected_wcet_ratio_override;
-        }
 
         // sched_deadline does not support tasks shorter than 1024 ns
         //        if (task.wcet <= 1) {
@@ -671,8 +666,8 @@ private:
             }
 
             unsigned long wcet = ((float)task.wcet) * expected_wcet_ratio;
-            LOG(INFO, "task %s (%u): running the processing step\n", task_name,
-                iter);
+            LOG(INFO, "task %s (%u): running the processing step for %lu * %f\n", task_name,
+                iter, wcet, ticks_per_us);
             // the task execution time does not account for the time to
             // receive/send data
             task_start_time = (unsigned long)micros();
@@ -810,8 +805,6 @@ private:
     void thread_launcher(unsigned seed) {
         vector<std::thread> threads;
         unsigned long thread_id;
-        // this represents how much of the WCET we want the task to run for
-        const float task_expected_wcet_ratio = input->get_expected_wcet_ratio();
         // this represents how many times this dag must repeat to reach the
         // hyperperiod this is only relevant when running multidag scenarios.
         // otherwise, hyperperiod_iters == 1
@@ -824,7 +817,16 @@ private:
 
         // Assuming the first task is the originator. It must run on the
         // CPU, because of the end-to-end execution time logging.
-        if (tasks[0].type != "cpu") {
+        if (tasks[0].type == "cpu") {
+            // This is ok
+            printf("First task type %s: ok!\n", tasks[0].type.c_str());
+        }
+#if RTDAG_OMP_SUPPORT == ON
+        else if (tasks[0].type == "omp") {
+            printf("First task type %s: ok!\n", tasks[0].type.c_str());
+        }
+#endif
+        else {
             fprintf(stderr, "ERROR: the 1st task must be running on a CPU!\n");
             exit(1);
         }
@@ -850,43 +852,54 @@ private:
         // The sink task must run on the CPU, because of the end-to-end
         // execution time logging.
         const auto &task_sink = *task_sink_iter;
-        if (task_sink.type != "cpu") {
-            fprintf(stderr, "ERROR: the last task must be running on a CPU!\n");
+        if (task_sink.type == "cpu") {
+            // This is ok
+            printf("Last task type %s: ok!\n", task_sink.type.c_str());
+        }
+#if RTDAG_OMP_SUPPORT == ON
+        else if (task_sink.type == "omp") {
+            printf("Last task type %s: ok!\n", task_sink.type.c_str());
+        }
+#endif
+        else {
+            fprintf(stderr, "ERROR: the LAST task must be running on a CPU!\n");
             exit(1);
         }
 
-        threads.push_back(thread(
-            task_creator, seed, input->get_dagset_name(), tasks[0],
-            total_iterations, input->get_deadline(), input->get_period(),
-            task_expected_wcet_ratio, input->get_matrix_size(0), RTGAUSS_CPU,
-            input->get_omp_target(0), input->get_ticks_per_us(0)));
-        thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
-        pid_list->push_back(thread_id);
-        LOG(INFO, "[main] pid %d task 0\n", getpid());
-        for (unsigned i = 1; i < input->get_n_tasks(); i++) {
-            if (tasks[i].type == "cpu") {
-                threads.push_back(std::thread(
-                    task_creator, seed, input->get_dagset_name(), tasks[i],
-                    total_iterations, input->get_deadline(), 0,
-                    task_expected_wcet_ratio, input->get_matrix_size(i),
-                    RTGAUSS_CPU, input->get_omp_target(i),
-                    input->get_ticks_per_us(i)));
-            }
+        LOG(INFO, "[main] pid %d\n", getpid());
+
+        for (unsigned i = 0; i < input->get_n_tasks(); ++i) {
+            rtgauss_type type = RTGAUSS_CPU;
+
 #if RTDAG_OMP_SUPPORT == ON
-            else if (tasks[i].type == "omp") {
-                threads.push_back(std::thread(
-                    task_creator, seed, input->get_dagset_name(), tasks[i],
-                    total_iterations, input->get_deadline(), 0,
-                    task_expected_wcet_ratio, input->get_matrix_size(i),
-                    RTGAUSS_OMP, input->get_omp_target(i),
-                    input->get_ticks_per_us(i)));
+            if (tasks[i].type == "omp") {
+                type = RTGAUSS_OMP;
             }
 #endif
+            auto period = input->get_period();
+            if (i > 0) {
+                // Only the first task has a period, the
+                // others wait to be woken up via data
+                period = 0;
+            }
+
+            if (tasks[i].type == "cpu"
+#if RTDAG_OMP_SUPPORT == ON
+                || tasks[i].type == "omp"
+#endif
+            ) {
+                threads.emplace_back(
+                    task_creator, seed, input->get_dagset_name(), tasks[i],
+                    total_iterations, input->get_deadline(), period,
+                    input->get_tasks_expected_wcet_ratio(i),
+                    input->get_matrix_size(i), type, input->get_omp_target(i),
+                    input->get_ticks_per_us(i));
+            }
 #if RTDAG_FRED_SUPPORT == ON
             else if (tasks[i].type == "fred") {
-                threads.push_back(std::thread(
+                threads.emplace_back(
                     fred_task_creator, seed, input->get_dagset_name(), tasks[i],
-                    total_iterations, input->get_deadline(), 0));
+                    total_iterations, input->get_deadline(), 0);
                 // place holder for the OpenCL task
                 //}else if (tasks[i].type == "opencl"){
                 //    threads.push_back(std::thread(opencl_task_creator,
@@ -897,7 +910,7 @@ private:
             else {
                 fprintf(stderr, "ERROR: invalid task type '%s' \n",
                         tasks[i].type.c_str());
-                exit(1);
+                exit(EXIT_FAILURE);
             }
             thread_id = std::hash<std::thread::id>{}(threads.back().get_id());
             pid_list->push_back(thread_id);
@@ -963,7 +976,10 @@ private:
             printf("Task %s pid %d forked\n", task.name.c_str(), getpid());
             task_creator(seed, input->get_dagset_name(), task,
                          input->get_repetitions(), input->get_deadline(),
-                         period, expected_wcet_ratio);
+                         period,
+                         input->get_tasks_expected_wcet_ratio(
+                             0)); // FIXME: this code is wrong, it is missing SO
+                                  // MANY THINGS
             exit(0);
         } else {
             pid_list->push_back(pid);

@@ -11,7 +11,7 @@ dag_period: 3000 # in us
 dag_deadline: 3000 # in us
 tasks_name: ["n000","n001","n002","n003"]
 tasks_type: ["cpu","cpu","cpu","cpu"]
-expected_wcet_ratio: .95
+tasks_expected_wcet_ratio: [.95]
 tasks_matrix_size: [4, 512, 4, 4]
 tasks_omp_target: [0,0,0,0]
 tasks_ticks_per_us: [0,1,0,0]

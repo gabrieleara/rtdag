@@ -6,11 +6,8 @@
 
 #include "rtgauss.h"
 
-float expected_wcet_ratio_override = 0.0;
-
 int main(int argc, char *argv[]) {
     auto program_options = parse_args(argc, argv);
-    expected_wcet_ratio_override = program_options.expected_wcet_ratio;
 
     switch (program_options.action) {
     case command_action::HELP:

@@ -51,16 +51,6 @@ matrices you can do it by passing -c USEC -C cpu -M 10
 If no OPTION is supplied, a DAG is run. The input mode for specifying the DAG
 information is: %s.
 
-The following OPTION is the only one that affects the execution of a DAG
-and NOT the calibration-related functions:
-    -e RATIO, --expected RATIO
-
-The RATIO parameter is a float that shall be greater than 0 and less than or
-equal to 1.0. It is used to compute the actual runtime of a task (in a
-frequency-independent way) as a fraction of its WCET.
-This OPTION must come BEFORE the DAG definition filename, if the input mode
-compiled against this program requires one.
-
 )STRING";
 
     if constexpr (input_type::has_input_file) {
@@ -87,7 +77,6 @@ struct opts {
     rtgauss_type rtg_type = RTGAUSS_CPU;
     int rtg_target = 0;
     int rtg_msize = 4;
-    float expected_wcet_ratio = 0;
     int exit_code = EXIT_SUCCESS;
 };
 
@@ -127,11 +116,10 @@ opts parse_args(int argc, char *argv[]) {
             {"help", no_argument, 0, 'h'},
             {"calibrate", required_argument, 0, 'c'},
             {"test", required_argument, 0, 't'},
-            {"expected", required_argument, 0, 'e'},
             {0, 0, 0, 0}};
 
         int c = getopt_long(argc, argv,
-                            "hc:t:e:C:M:"
+                            "hc:t:C:M:"
 #if RTDAG_OMP_SUPPORT == ON
                             "T:"
 #endif
@@ -196,20 +184,6 @@ opts parse_args(int argc, char *argv[]) {
             if (program_options.rtg_target < 0) {
                 goto arg_error;
             }
-            break;
-        }
-        case 'e': {
-            auto expected_valid = parse_argument_from_string<float>(optarg);
-            if (!expected_valid) {
-                goto arg_error;
-            }
-
-            program_options.expected_wcet_ratio = *expected_valid;
-            if (program_options.expected_wcet_ratio < 0.0 ||
-                program_options.expected_wcet_ratio > 1.0) {
-                goto arg_error;
-            }
-
             break;
         }
         case '?':
