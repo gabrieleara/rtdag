@@ -14,6 +14,7 @@ scenarios
 
 #include "input_base.h"
 #include "time_aux.h"
+#include "multi_queue.h"
 
 #include <string>
 #include <vector>
@@ -22,7 +23,7 @@ scenarios
 // FIXME: The number of 32 is tied to the flags in the
 // multi_queue (and it's not even technically correct for
 // platforms in which an int/long is not 32 bits...)
-#define MAX_N_TASKS 32
+#define MAX_N_TASKS (sizeof(queue_mask_type) * 8)
 
 enum class yaml_error_type {
     YAML_WARN,
@@ -208,10 +209,10 @@ public:
             std::exit(EXIT_FAILURE);
         }
 
-        if (n_tasks > MAX_N_TASKS) {
+        if (((unsigned long)(n_tasks)) > MAX_N_TASKS) {
             std::fprintf(
                 stderr,
-                "ERROR: 'n_tasks' greater than maximum allowed: %d > %d\n",
+                "ERROR: 'n_tasks' greater than maximum allowed: %d > %lu\n",
                 n_tasks, MAX_N_TASKS);
             std::fprintf(stderr, "Please, recompile rtdag to increase the "
                                  "maximum allowed number.\n");
