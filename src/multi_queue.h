@@ -14,10 +14,12 @@ extern "C" {
 //#define dbg_printf(args...) printf(args)
 #define dbg_printf(args...)
 
+typedef uint64_t queue_mask_type;
+
 typedef struct {
   void **elems;
   int num_elems;      // incoming elements
-  int busy_mask;     // bitmaks of elements currently in
+  queue_mask_type busy_mask;     // bitmaks of elements currently in
   pthread_mutex_t mtx;
   pthread_cond_t cv_ready;
   pthread_cond_t *cv_busy;

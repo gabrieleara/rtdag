@@ -584,6 +584,18 @@ private:
         set_sched_deadline(task.prio, task.deadline, task.deadline,
                            task.deadline);
 
+#if TASK_IMPL == TASK_IMPL_THREAD
+        {
+            // wait for all threads in the DAG to have been started up to this
+            // point
+            LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n",
+                (void *)task.p_bar, task.name.c_str());
+            int rv = pthread_barrier_wait(task.p_bar);
+            (void)rv;
+            LOG(DEBUG, "FIRST barrier_wait() returned: %d\n", rv);
+        }
+#endif
+
         // period definitions - used only by the starting task
         struct period_info pinfo;
         if (task.in_buffers.size() == 0) {
@@ -593,12 +605,15 @@ private:
         }
 
 #if TASK_IMPL == TASK_IMPL_THREAD
-        // wait for all threads in the DAG to have been started up to this point
-        LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void *)task.p_bar,
-            task.name.c_str());
-        int rv = pthread_barrier_wait(task.p_bar);
-        (void)rv;
-        LOG(DEBUG, "barrier_wait() returned: %d\n", rv);
+        {
+            // wait for all threads in the DAG to have been started up to this
+            // point
+            LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n",
+                (void *)task.p_bar, task.name.c_str());
+            int rv = pthread_barrier_wait(task.p_bar);
+            (void)rv;
+            LOG(DEBUG, "LAST barrier_wait() returned: %d\n", rv);
+        }
 #endif
 
         if (task.in_buffers.size() == 0) {
@@ -636,7 +651,7 @@ private:
                 LOG(DEBUG, "pinfo.next_period: %ld %ld\n",
                     pinfo.next_period.tv_sec, pinfo.next_period.tv_nsec);
             } else {
-                // wait all incomming messages
+                // wait all incoming messages
                 LOG(INFO, "task %s (%u): waiting msgs\n", task_name, iter);
                 LOG(INFO,
                     "task %s (%u), waiting on pop(), for %d tasks to push()\n",
@@ -666,8 +681,9 @@ private:
             }
 
             unsigned long wcet = ((float)task.wcet) * expected_wcet_ratio;
-            LOG(INFO, "task %s (%u): running the processing step for %lu * %f\n", task_name,
-                iter, wcet, ticks_per_us);
+            LOG(INFO,
+                "task %s (%u): running the processing step for %lu * %f\n",
+                task_name, iter, wcet, ticks_per_us);
             // the task execution time does not account for the time to
             // receive/send data
             task_start_time = (unsigned long)micros();
@@ -802,6 +818,40 @@ private:
         printf("%c\n", checksum);
     }
 
+    const task_type &task_find_one(const auto begin, const auto end,
+                                   const auto predicate,
+                                   const std::string &which) {
+        const auto task_iter = std::find_if(begin, end, predicate);
+        if (task_iter == end) {
+            LOG(ERROR, "Could not find the %d task!\n", which.c_str());
+            exit(EXIT_FAILURE);
+        }
+
+        // NOTE: only ONE task must match the predicate!
+        const auto none_check = std::find_if(task_iter + 1, end, predicate);
+        if (none_check != end) {
+            LOG(ERROR, "Found multiple %s tasks!\n", which.c_str());
+            exit(EXIT_FAILURE);
+        }
+
+        return *task_iter;
+    }
+
+    void task_cpu_check(const task_type &task, const std::string &which) {
+        if (task.type == "cpu") {
+            return;
+        }
+
+#if RTDAG_OMP_SUPPORT == ON
+        if (task.type == "omp") {
+            return;
+        }
+#endif
+
+        LOG(ERROR, "The %s task must be running on a CPU!\n", which.c_str());
+        exit(EXIT_FAILURE);
+    }
+
     void thread_launcher(unsigned seed) {
         vector<std::thread> threads;
         unsigned long thread_id;
@@ -815,56 +865,27 @@ private:
         const unsigned total_iterations =
             hyperperiod_iters * input->get_repetitions();
 
-        // Assuming the first task is the originator. It must run on the
-        // CPU, because of the end-to-end execution time logging.
-        if (tasks[0].type == "cpu") {
-            // This is ok
-            printf("First task type %s: ok!\n", tasks[0].type.c_str());
-        }
-#if RTDAG_OMP_SUPPORT == ON
-        else if (tasks[0].type == "omp") {
-            printf("First task type %s: ok!\n", tasks[0].type.c_str());
-        }
-#endif
-        else {
-            fprintf(stderr, "ERROR: the 1st task must be running on a CPU!\n");
-            exit(1);
-        }
+        const auto has_no_inputs = [](const task_type &task) {
+            return task.in_buffers.size() == 0;
+        };
 
-        // Assuming the first task is the originator. It must not have any
-        // dependency from other tasks.
-        if (tasks[0].in_buffers.size() > 0) {
-            fprintf(
-                stderr,
-                "ERROR: the 1st task must NOT have any incoming messages!\n");
-            exit(1);
-        }
+        const auto has_no_outputs = [](const task_type &task) {
+            return task.out_buffers.size() == 0;
+        };
 
-        const auto task_sink_iter = std::find_if(
-            std::cbegin(tasks), std::cend(tasks),
-            [](const auto &task) { return task.out_buffers.size() == 0; });
+        const task_type &task_first = task_find_one(
+            std::cbegin(tasks), std::cend(tasks), has_no_inputs, "first");
 
-        if (task_sink_iter == std::cend(tasks)) {
-            fprintf(stderr, "ERROR: could not find the last task!\n");
-            exit(1);
-        }
+        const task_type &task_last = task_find_one(
+            std::cbegin(tasks), std::cend(tasks), has_no_outputs, "last");
 
-        // The sink task must run on the CPU, because of the end-to-end
-        // execution time logging.
-        const auto &task_sink = *task_sink_iter;
-        if (task_sink.type == "cpu") {
-            // This is ok
-            printf("Last task type %s: ok!\n", task_sink.type.c_str());
-        }
-#if RTDAG_OMP_SUPPORT == ON
-        else if (task_sink.type == "omp") {
-            printf("Last task type %s: ok!\n", task_sink.type.c_str());
-        }
-#endif
-        else {
-            fprintf(stderr, "ERROR: the LAST task must be running on a CPU!\n");
-            exit(1);
-        }
+        // First and last tasks MUST execute on the CPU, because of the
+        // end-to-end execution time logging.
+        //
+        // FIXME: This limitation will be dropped in future releases where
+        // FRED tasks are regular tasks.
+        task_cpu_check(task_first, "first");
+        task_cpu_check(task_last, "last");
 
         LOG(INFO, "[main] pid %d\n", getpid());
 
@@ -877,7 +898,9 @@ private:
             }
 #endif
             auto period = input->get_period();
-            if (i > 0) {
+            // NOTE: checking addresses because otherwise I'd have to
+            // define a comparison operator...
+            if (&tasks[i] != &task_first) {
                 // Only the first task has a period, the
                 // others wait to be woken up via data
                 period = 0;
@@ -899,7 +922,7 @@ private:
             else if (tasks[i].type == "fred") {
                 threads.emplace_back(
                     fred_task_creator, seed, input->get_dagset_name(), tasks[i],
-                    total_iterations, input->get_deadline(), 0);
+                    total_iterations, input->get_deadline(), period);
                 // place holder for the OpenCL task
                 //}else if (tasks[i].type == "opencl"){
                 //    threads.push_back(std::thread(opencl_task_creator,
@@ -1029,6 +1052,10 @@ private:
         // sa.sched_flags |= SCHED_FLAG_RECLAIM;
         if (sched_setattr(0, &sa, 0) < 0) {
             perror("ERROR sched_setattr()");
+            printf(
+                "sched_setattr attributes: P=%u DL_C=%ld DL_D=%ld DL_T=%ld\n",
+                sa.sched_priority, sa.sched_runtime, sa.sched_deadline,
+                sa.sched_period);
             printf("ERROR: make sure you run rtdag with 'sudo' and also 'echo "
                    "-1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us' is "
                    "executed before running rt-dag\n");
