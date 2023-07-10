@@ -6,9 +6,11 @@
 #include <unistd.h>
 #include <stdint.h>
 
-typedef uint64_t u64;
-typedef uint32_t u32;
-typedef int32_t s32;
+#include "newstuff/integers.h"
+
+#define SCHED_FLAG_RESET_ON_FORK 0x01
+#define SCHED_FLAG_RECLAIM 0x02
+#define SCHED_FLAG_DL_OVERRUN 0x04
 
 struct sched_attr {
     u32 size;

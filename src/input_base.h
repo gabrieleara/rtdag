@@ -26,7 +26,7 @@ public:
 #if RTDAG_FRED_SUPPORT == ON
     virtual int get_fred_id(unsigned t) const = 0;
 #endif
-    virtual unsigned long get_tasks_prio(unsigned t) const = 0;
+    virtual unsigned int get_tasks_prio(unsigned t) const = 0;
     virtual unsigned long get_tasks_runtime(unsigned t) const = 0;
     virtual unsigned long get_tasks_wcet(unsigned t) const = 0;
     virtual unsigned long get_tasks_rel_deadline(unsigned t) const = 0;

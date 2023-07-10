@@ -102,10 +102,13 @@ message(STATUS "------------------------------------------- ")
 # ======================= TARGETS ======================== #
 
 add_executable(rtdag
-    src/rtdag_main.cpp
+    # src/rtdag_main.cpp
     src/periodic_task.c
-    src/time_aux.c
+    # src/time_aux.c
     src/rtgauss.cpp
+    src/newstuff/schedutils.cpp
+    src/newstuff/taskset.cpp
+    src/newstuff/rtask.cpp
 )
 
 set_target_properties(rtdag PROPERTIES
@@ -120,6 +123,8 @@ target_compile_options(rtdag PRIVATE
     -Wpedantic
     -Wno-long-long
     -Wno-variadic-macros
+
+    -Wfatal-errors
 
     -include ${CMAKE_CURRENT_BINARY_DIR}/rtdag_config.h
 )

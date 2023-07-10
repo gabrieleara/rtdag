@@ -37,8 +37,10 @@
 #include <time_aux.h>
 
 #include "multi_queue.h"
-#include "sched_defs.h"
+
 #include <pthread.h>
+
+#include "newstuff/schedutils.h"
 
 #include "input_base.h"
 
@@ -73,6 +75,8 @@ typedef struct {
 
 using ptr_edge = std::shared_ptr<edge_type>;
 
+using microseconds = std::chrono::microseconds;
+
 typedef struct {
     string name;
     string type;  // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are
@@ -81,11 +85,11 @@ typedef struct {
                   // must be run on the FPGA
     int affinity; // which core the task is mapped. negative value means that
                   // the task is not pinned
-    unsigned long prio;
-    unsigned long wcet;     // in us
-    unsigned long runtime;  // in us. this is the task execution time assuming
-                            // the ref island at top freq
-    unsigned long deadline; // in us
+
+    sched_info scheduling;
+
+    microseconds wcet;
+
     vector<ptr_edge> in_buffers;
     vector<ptr_edge> out_buffers;
     multi_queue_t mq; // used by all elements except the DAG source
@@ -162,11 +166,13 @@ public:
 #if RTDAG_FRED_SUPPORT == ON
             tasks[i].fred_id = input->get_fred_id(i);
 #endif
-            tasks[i].prio = input->get_tasks_prio(i);
-            tasks[i].wcet = input->get_tasks_wcet(i);
-            tasks[i].runtime = input->get_tasks_runtime(i);
-            tasks[i].deadline = input->get_tasks_rel_deadline(i);
-            tasks[i].affinity = input->get_tasks_affinity(i);
+
+            tasks[i].scheduling = sched_info(
+                input->get_tasks_prio(i), microseconds(input->get_tasks_runtime(i)),
+                microseconds(input->get_tasks_rel_deadline(i)),
+                microseconds(input->get_tasks_affinity(i)));
+
+            tasks[i].wcet = microseconds(input->get_tasks_wcet(i));
             std::vector<int> in_tasks = get_input_tasks(input.get(), i);
             // create the edges/queues w unique names (unless we're the DAG
             // source)
@@ -237,7 +243,7 @@ public:
         for (i = 0; i < input->get_n_tasks(); ++i) {
             cout << tasks[i].name << ", type: " << tasks[i].type
                  << ", wcet: " << tasks[i].wcet
-                 << ", deadline: " << tasks[i].deadline
+                 << ", deadline: " << tasks[i].scheduling.deadline()
                  << ", affinity: " << tasks[i].affinity << endl;
             cout << " ins: ";
             for (c = 0; c < tasks[i].in_buffers.size(); ++c)
@@ -581,8 +587,8 @@ private:
         // period of the tasks is greater).
         LOG(DEBUG, "task %s: using the dline as runtime (pure EDF, no CBS)\n",
             task_name);
-        set_sched_deadline(task.prio, task.deadline, task.deadline,
-                           task.deadline);
+
+        task.scheduling.set();
 
 #if TASK_IMPL == TASK_IMPL_THREAD
         {
@@ -680,7 +686,7 @@ private:
                 }
             }
 
-            unsigned long wcet = ((float)task.wcet) * expected_wcet_ratio;
+            unsigned long wcet = ((float)(task.wcet.count())) * expected_wcet_ratio;
             LOG(INFO,
                 "task %s (%u): running the processing step for %lu * %f\n",
                 task_name, iter, wcet, ticks_per_us);
@@ -1019,48 +1025,6 @@ private:
                 *(buffer)++; // use the value then moves to next position;
         }
         return checksum;
-    }
-
-    static void set_sched_deadline(unsigned long prio, unsigned long runtime,
-                                   unsigned long deadline,
-                                   unsigned long period) {
-        struct sched_attr sa;
-        if (sched_getattr(0, &sa, sizeof(sa), 0) < 0) {
-            perror("ERROR sched_getattr()");
-            exit(1);
-        }
-
-#define SCHED_FLAG_RESET_ON_FORK 0x01
-#define SCHED_FLAG_RECLAIM 0x02
-#define SCHED_FLAG_DL_OVERRUN 0x04
-
-        if (prio > 0) {
-            // override, use regular RT prio instead
-            sa.sched_policy = SCHED_FIFO;
-            sa.sched_priority = prio;
-            LOG(DEBUG, "sched_setattr attributes: P=%u\n", sa.sched_priority);
-        } else {
-            sa.sched_policy = SCHED_DEADLINE;
-            // time in nanoseconds!!!
-            sa.sched_runtime = u64(runtime) * 1000;
-            sa.sched_deadline = u64(deadline) * 1000;
-            sa.sched_period = u64(period) * 1000;
-            LOG(DEBUG, "sched_setattr attributes: DL_C=%ld DL_D=%ld DL_T=%ld\n",
-                sa.sched_runtime, sa.sched_deadline, sa.sched_period);
-        }
-
-        // sa.sched_flags |= SCHED_FLAG_RECLAIM;
-        if (sched_setattr(0, &sa, 0) < 0) {
-            perror("ERROR sched_setattr()");
-            printf(
-                "sched_setattr attributes: P=%u DL_C=%ld DL_D=%ld DL_T=%ld\n",
-                sa.sched_priority, sa.sched_runtime, sa.sched_deadline,
-                sa.sched_period);
-            printf("ERROR: make sure you run rtdag with 'sudo' and also 'echo "
-                   "-1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us' is "
-                   "executed before running rt-dag\n");
-            exit(1);
-        }
     }
 
     static void pin_to_core(const unsigned cpu) {

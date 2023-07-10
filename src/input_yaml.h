@@ -18,12 +18,13 @@ scenarios
 
 #include <string>
 #include <vector>
+#include <limits>
 #include <yaml-cpp/yaml.h>
 
 // FIXME: The number of 32 is tied to the flags in the
 // multi_queue (and it's not even technically correct for
 // platforms in which an int/long is not 32 bits...)
-#define MAX_N_TASKS (sizeof(queue_mask_type) * 8)
+#define MAX_N_TASKS (std::numeric_limits<MultiQueue::mask_type>::digits)
 
 enum class yaml_error_type {
     YAML_WARN,
@@ -154,7 +155,7 @@ private:
     struct task_data {
         string name;
         string type;
-        long long prio;
+        int prio;
         long long wcet;
         long long runtime;
         long long rel_deadline;
@@ -212,7 +213,7 @@ public:
         if (((unsigned long)(n_tasks)) > MAX_N_TASKS) {
             std::fprintf(
                 stderr,
-                "ERROR: 'n_tasks' greater than maximum allowed: %d > %lu\n",
+                "ERROR: 'n_tasks' greater than maximum allowed: %d > %u\n",
                 n_tasks, MAX_N_TASKS);
             std::fprintf(stderr, "Please, recompile rtdag to increase the "
                                  "maximum allowed number.\n");
@@ -221,7 +222,7 @@ public:
 
         std::vector<string> task_names;
         std::vector<string> task_types;
-        std::vector<long long> task_prios;
+        std::vector<int> task_prios;
         std::vector<long long> task_wcets;
         std::vector<long long> task_runtimes;
         std::vector<long long> task_rel_deadlines;
@@ -236,7 +237,7 @@ public:
         std::vector<int> task_matrix_size_default(n_tasks, 4);
         std::vector<int> task_omp_target_default(n_tasks, 0);
         std::vector<float> task_ticks_us_default(n_tasks, -1);
-        std::vector<long long> task_prios_default(n_tasks, 0);
+        std::vector<int> task_prios_default(n_tasks, 0);
         std::vector<float> task_ewr_default(n_tasks, 1);
 
 #define M_GET_TASKS_VEC(dest, attr)                                            \
@@ -380,7 +381,7 @@ public:
     }
 #endif
 
-    unsigned long get_tasks_prio(unsigned t) const override {
+    unsigned int get_tasks_prio(unsigned t) const override {
         return tasks[t].prio;
     }
 

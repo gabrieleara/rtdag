@@ -5,20 +5,24 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <vector>
 #include <condition_variable>
 #include <mutex>
 
 #include "logging.h"
+#include "newstuff/integers.h"
 
-typedef uint64_t queue_mask_type;
+class MultiQueue {
+public:
+    using mask_type = u64;
 
-struct multi_queue_t {
+private:
     // Mutex to lock to access the multi queue
     std::mutex mtx;
 
     // Bitmask of elements currently in the buffer (at most
     // std::numeric_limits<queue_mask_type>::digits supported)
-    queue_mask_type busy_mask = 0;
+    mask_type busy_mask = 0;
 
     // Message buffer
     std::vector<void *> elems;
@@ -34,7 +38,8 @@ struct multi_queue_t {
     // (producers queue here)
     std::vector<std::condition_variable> cv_busy;
 
-    multi_queue_t(int num_elems) :
+public:
+    MultiQueue(int num_elems) :
         elems(num_elems), waiting(num_elems, 0), cv_busy(num_elems) {}
 
     // may block if the i-th elem is busy; returns 1 if all
@@ -53,7 +58,7 @@ struct multi_queue_t {
         }
         elems[i] = elem;
         busy_mask |= bit;
-        if (busy_mask == ((1 << elems.size()) - 1)) {
+        if (busy_mask == ((u64(1) << elems.size()) - 1)) {
             // Original implementation used _signal, which
             // guarantees to unblock at least one of the
             // waiters...
@@ -72,8 +77,8 @@ struct multi_queue_t {
         assert(num_elems == elems.size());
 
         std::unique_lock<std::mutex> lock(mtx);
-        while (busy_mask != (1 << num_elems) - 1) {
-            LOG_DEBUG("pop() suspending (busy_mask=%x)...\n", busy_mask);
+        while (busy_mask != (u64(1) << num_elems) - 1) {
+            LOG_DEBUG("pop() suspending (busy_mask=%lx)...\n", busy_mask);
             cv_ready.wait(lock);
             LOG_DEBUG("pop() woken up...\n");
         }
