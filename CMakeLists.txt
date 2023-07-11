@@ -109,6 +109,8 @@ add_executable(rtdag
     src/newstuff/schedutils.cpp
     src/newstuff/taskset.cpp
     src/newstuff/rtask.cpp
+
+    src/input/yaml.cpp
 )
 
 set_target_properties(rtdag PROPERTIES

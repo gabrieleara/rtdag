@@ -1,19 +1,18 @@
-#pragma once
 #ifndef RTDAG_INPUT_H
 #define RTDAG_INPUT_H
 
-#include "input_base.h"
+#include "input/base.h"
 
 #if RTDAG_INPUT_TYPE == INPUT_TYPE_YAML
 
-#include "input_yaml.h"
+#include "input/yaml.h"
 using input_type = input_yaml;
 #define INPUT_TYPE_NAME "yaml"
 #define INPUT_TYPE_NAME_CAPS "YAML"
 
 #elif RTDAG_INPUT_TYPE == INPUT_TYPE_HEADER
 
-#include "input_header.h"
+#include "input/header.h"
 using input_type = input_header;
 #define INPUT_TYPE_NAME "header"
 #define INPUT_TYPE_NAME_CAPS "HEADER"

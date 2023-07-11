@@ -1,7 +1,7 @@
 #ifndef RTDAG_RUN_H
 #define RTDAG_RUN_H
 
-#include "input.h"
+#include "input/input.h"
 #include "newstuff/taskset.h"
 
 // the dag definition is here

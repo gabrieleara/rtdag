@@ -12,11 +12,11 @@ scenarios, this becomes cumbersome. It gets even more complex because it
 requires cross-compilation to build all the required scenarios
 */
 
-#include "dag.h"
-#include "input_base.h"
+#include "input/base.h"
 
 using namespace std;
 
+[[deprecated]]
 class input_header : public input_base {
 
 public:

@@ -1,4 +1,3 @@
-#pragma once
 #ifndef RTDAG_INTEGERS
 #define RTDAG_INTEGERS
 

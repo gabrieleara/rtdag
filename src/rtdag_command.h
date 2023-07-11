@@ -1,7 +1,7 @@
 #ifndef RTDAG_COMMAND_H
 #define RTDAG_COMMAND_H
 
-#include "input.h"
+#include "input/input.h"
 #include <getopt.h>
 
 #include <cassert>
