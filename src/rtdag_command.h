@@ -72,7 +72,7 @@ enum class command_action {
 
 struct opts {
     command_action action = command_action::RUN_DAG;
-    string in_fname = "";
+    std::string in_fname = "";
     uint64_t duration_us = 0;
     rtgauss_type rtg_type = RTGAUSS_CPU;
     int rtg_target = 0;
@@ -81,30 +81,30 @@ struct opts {
 };
 
 template <class ReturnType>
-optional<ReturnType> parse_argument_from_string(const char *str) {
+std::optional<ReturnType> parse_argument_from_string(const char *str) {
     auto mstring = std::string(str);
     auto mstream = std::istringstream(mstring);
 
     ReturnType rt;
     mstream >> rt;
 
-    return mstream ? optional<ReturnType>(rt) : nullopt;
+    return mstream ? std::optional<ReturnType>(rt) : std::nullopt;
 }
 
 template <>
-optional<rtgauss_type> parse_argument_from_string(const char *str) {
+std::optional<rtgauss_type> parse_argument_from_string(const char *str) {
     auto mstring = std::string(str);
 
     if (mstring == "cpu") {
-        return optional<rtgauss_type>(RTGAUSS_CPU);
+        return std::optional<rtgauss_type>(RTGAUSS_CPU);
     }
 #if RTDAG_OMP_SUPPORT == ON
     if (mstring == "omp") {
-        return optional<rtgauss_type>(RTGAUSS_OMP);
+        return std::optional<rtgauss_type>(RTGAUSS_OMP);
     }
 #endif
 
-    return nullopt;
+    return std::nullopt;
 }
 
 opts parse_args(int argc, char *argv[]) {

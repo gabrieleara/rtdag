@@ -14,7 +14,7 @@ requires cross-compilation to build all the required scenarios
 
 #include "input/base.h"
 
-using namespace std;
+// using namespace std;
 
 [[deprecated]]
 class input_header : public input_base {

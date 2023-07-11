@@ -123,8 +123,8 @@ input_yaml::input_yaml(const char *fname) : input_base() {
         std::exit(EXIT_FAILURE);
     }
 
-    std::vector<string> task_names;
-    std::vector<string> task_types;
+    std::vector<std::string> task_names;
+    std::vector<std::string> task_types;
     std::vector<int> task_prios;
     std::vector<long long> task_wcets;
     std::vector<long long> task_runtimes;

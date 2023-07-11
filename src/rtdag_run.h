@@ -1,8 +1,12 @@
 #ifndef RTDAG_RUN_H
 #define RTDAG_RUN_H
 
+#include <iostream>
+
 #include "input/input.h"
 #include "newstuff/taskset.h"
+
+#include <sys/stat.h>
 
 // the dag definition is here
 // #include "task_set.h"
@@ -15,7 +19,7 @@
 // check the end-to-end DAG deadline
 // the start task writes and the final task reads from it to
 // unsigned long dag_start_time;
-vector<int> pid_list;
+std::vector<int> pid_list;
 
 // void exit_all([[maybe_unused]] int sigid) {
 // #if TASK_IMPL == TASK_IMPL_THREAD
@@ -35,7 +39,7 @@ vector<int> pid_list;
 
 int get_ticks_per_us(bool required);
 
-int run_dag(string in_fname) {
+int run_dag(const std::string &in_fname) {
     // uncomment this to get a random seed
     // unsigned seed = time(0);
     // or set manually a constant seed to repeat the same sequence
@@ -46,9 +50,9 @@ int run_dag(string in_fname) {
     std::unique_ptr<input_base> inputs =
         std::make_unique<input_type>(in_fname.c_str());
     dump(*inputs);
-    DagTaskset task_set(inputs);
+    DagTaskset task_set(*inputs);
     std::cout << "\nPrinting the input DAG: \n";
-    task_set.print();
+    task_set.print(std::cout);
 
     // Check whether the environment contains the TICKS_PER_US variable
     int ret = get_ticks_per_us(true);
@@ -60,10 +64,10 @@ int run_dag(string in_fname) {
     struct stat st; // This is C++, you cannot use {0} to initialize to zero an
                     // entire struct.
     memset(&st, 0, sizeof(struct stat));
-    if (stat(task_set.get_dagset_name(), &st) == -1) {
+    if (stat(task_set.dag.name.c_str(), &st) == -1) {
         // permisions required in order to allow using rsync since rt-dag is run
         // as root in the target computer
-        int rv = mkdir(task_set.get_dagset_name(), 0777);
+        int rv = mkdir(task_set.dag.name.c_str(), 0777);
         if (rv != 0) {
             perror("ERROR creating directory");
             exit(1);
@@ -71,7 +75,7 @@ int run_dag(string in_fname) {
     }
 
     // pass pid_list such that tasks can be killed with CTRL+C
-    task_set.launch_tasks(&pid_list, seed);
+    task_set.launch(pid_list, seed);
     // "" is used only to avoid variadic macro warning
     LOG(INFO, "[main] all tasks were finished%s...\n", " ");
 

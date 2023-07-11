@@ -12,7 +12,7 @@
 // ------------------------- HELPER FUNCTIONS -------------------------- //
 
 static inline void task_set_name(const std::string_view &sname) {
-    // According to pthread_setname_np(3), the string must be limited to 16
+    // According to pthread_setname_np(3), the std::string must be limited to 16
     // characters, including the NULL-termination!
     char name[16];
     int ncopied = sname.copy(name, 15);
@@ -61,7 +61,7 @@ static inline void task_pin(int cpu) {
 //     std::string fname = ss.str();
 //     // FIXME: Why oh why is it every file open in append in this
 //     // application?
-//     exec_time_f.open(fname, std::ios_base::app);
+//     exec_time_f.open(fname, std::std::ios_base::app);
 //     if (!exec_time_f) {
 //         LOG(ERROR, "execution time file '%s' not created\n", fname.c_str());
 //         exit(EXIT_FAILURE);
@@ -73,7 +73,9 @@ static inline void task_pin(int cpu) {
 
 // ------------------------- MEMBER FUNCTIONS -------------------------- //
 
-void Task::task_body() {
+void Task::task_body(unsigned seed) {
+    (void)seed; // FIXME: pass it to the other functions
+
     do_init();
     common_init();
 
@@ -262,7 +264,7 @@ void Task::loop_body_after(int iter, std::chrono::microseconds duration) {
     // FIXME: implement this stuff as well
 
     // write the task execution time into its log file
-    exec_time_f << duration << endl;
+    exec_time_f << duration << std::endl;
     if (duration > task.deadline) {
         printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n",
                task_name, iter, duration, task.deadline);
@@ -307,16 +309,16 @@ std::fstream open_append(const std::string &fname, bool &existed) {
     std::fstream os;
     existed = false;
 
-    // First open will NOT create the file because ios_base::in is in the
-    // flags
-    os.open(fname, ios_base::out | ios_base::in);
+    // First open will NOT create the file because std::ios_base::in is in
+    // the flags
+    os.open(fname, std::ios_base::out | std::ios_base::in);
     if (os.is_open()) {
         existed = true;
     }
 
     // We have to close and re-open in append this time
     os.clear();
-    os.open(fname, ios_base::out | ios_base::app);
+    os.open(fname, std::ios_base::out | std::ios_base::app);
 
     return os;
 }

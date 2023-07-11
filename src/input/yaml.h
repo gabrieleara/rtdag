@@ -28,8 +28,6 @@ scenarios
 
 class input_yaml : public input_base {
 private:
-    using string = std::string;
-
     // YAML Structure:
     //
     // hyperperiod: long # in us
@@ -38,7 +36,7 @@ private:
     // n_cpus: int
     // cpus_freq: int[] # in MHz
     //
-    // dag_name: string
+    // dag_name: std::string
     // n_edges: int
     // max_out_edges: int
     // max_in_edges: int
@@ -48,8 +46,8 @@ private:
     // dag_deadline: long # in us
     //
     // n_tasks: int
-    // tasks_name: string[], one per task
-    // tasks_type: string[], one per task
+    // tasks_name: std::string[], one per task
+    // tasks_type: std::string[], one per task
     // tasks_wcet: long[] # in us
     // tasks_runtime: long[] # in us
     // tasks_rel_deadline: long[] # in us
@@ -74,7 +72,7 @@ private:
 
     // -------------------- DAG DATA ---------------------
 
-    string dag_name;
+    std::string dag_name;
     int n_edges;
     int max_out_edges;
     int max_in_edges;
@@ -86,8 +84,8 @@ private:
     // ------------------- TASKS DATA --------------------
 
     struct task_data {
-        string name;
-        string type;
+        std::string name;
+        std::string type;
         int prio;
         long long wcet;
         long long runtime;
@@ -196,7 +194,7 @@ public:
     }
 
     float get_tasks_expected_wcet_ratio(unsigned t) const override {
-        return tasks[t].expected_wcet_ratio; // FIXME: this may be optional
+        return tasks[t].expected_wcet_ratio; // FIXME: this may be std::optional
     }
 
     unsigned int get_matrix_size(unsigned t) const override {

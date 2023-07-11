@@ -51,7 +51,7 @@
 typedef uint64_t data_t;
 #endif
 
-using namespace std;
+// using namespace std;
 
 #define BUFFER_LINES 1
 
@@ -78,8 +78,8 @@ using ptr_edge = std::shared_ptr<edge_type>;
 using microseconds = std::chrono::microseconds;
 
 typedef struct {
-    string name;
-    string type;  // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are
+    std::string name;
+    std::string type;  // cpu, fred, opencl, openmp, cuda, etc. Only cpu and fred are
                   // implemented
     int fred_id;  // positive integer >= 100 that indicates the specific IP that
                   // must be run on the FPGA
@@ -191,7 +191,7 @@ public:
                     // destination task i
                     new_edge->p_mq = &tasks[i].mq;
                     new_edge->mq_push_idx = j;
-                    // this message size includes the string terminator, thus,
+                    // this message size includes the std::string terminator, thus,
                     // threre is no +1 here
                     new_edge->msg_size = input->get_adjacency_matrix(s, i);
                     new_edge->msg_buf = new char[new_edge->msg_size];
@@ -241,21 +241,21 @@ public:
     void print() const {
         unsigned i, c;
         for (i = 0; i < input->get_n_tasks(); ++i) {
-            cout << tasks[i].name << ", type: " << tasks[i].type
+            std::cout << tasks[i].name << ", type: " << tasks[i].type
                  << ", wcet: " << tasks[i].wcet
                  << ", deadline: " << tasks[i].scheduling.deadline()
-                 << ", affinity: " << tasks[i].affinity << endl;
-            cout << " ins: ";
+                 << ", affinity: " << tasks[i].affinity << std::endl;
+            std::cout << " ins: ";
             for (c = 0; c < tasks[i].in_buffers.size(); ++c)
-                cout << tasks[i].in_buffers[c]->name << "("
+                std::cout << tasks[i].in_buffers[c]->name << "("
                      << tasks[i].in_buffers[c]->msg_size << "), ";
-            cout << endl;
-            cout << " outs: ";
+            std::cout << std::endl;
+            std::cout << " outs: ";
             for (c = 0; c < tasks[i].out_buffers.size(); ++c)
-                cout << tasks[i].out_buffers[c]->name << "("
+                std::cout << tasks[i].out_buffers[c]->name << "("
                      << tasks[i].out_buffers[c]->msg_size << ","
                      << tasks[i].out_buffers[c]->mq_push_idx << "), ";
-            cout << endl;
+            std::cout << std::endl;
         }
     }
 
@@ -349,7 +349,7 @@ private:
 
         for (unsigned i = 0; i < total_buffers; ++i) {
             // get the pointers to the memory addresses created by fred-server
-            // cout << "buffer " << i << endl;
+            // std::cout << "buffer " << i << std::endl;
             fred_bufs[i] = (data_t *)fred_map_buff(fred, hw_ip, i);
             if (!fred_bufs[i]) {
                 fprintf(stderr, "ERROR: fred_map_buff failed\n");
@@ -368,7 +368,7 @@ private:
 #ifndef NDEBUG
         // file to save the task execution time in debug mode
         ofstream exec_time_f;
-        string exec_time_fname = dag_name;
+        std::string exec_time_fname = dag_name;
         exec_time_fname += "/";
         exec_time_fname += task.name;
         exec_time_fname += ".log";
@@ -380,7 +380,7 @@ private:
         }
         // the 1st line is the task relative deadline. all the following lines
         // are actual execution times
-        exec_time_f << task.deadline << endl;
+        exec_time_f << task.deadline << std::endl;
 #endif // NDEBUG
 
         struct sched_param priority;
@@ -442,7 +442,7 @@ private:
 
 #ifndef NDEBUG
             // write the task execution time into its log file
-            exec_time_f << duration << endl;
+            exec_time_f << duration << std::endl;
             if (duration > task.deadline) {
                 printf(
                     "ERROR: task %s (%u): task duration %lu > deadline %lu!\n",
@@ -552,7 +552,7 @@ private:
 
         unsigned long now_long, duration;
         unsigned long task_start_time;
-        string exec_time_fname;
+        std::string exec_time_fname;
 
 #ifndef NDEBUG
         // file to save the task execution time in debug mode
@@ -569,7 +569,7 @@ private:
         }
         // the 1st line is the task relative deadline. all the following lines
         // are actual execution times
-        exec_time_f << task.deadline << endl;
+        exec_time_f << task.deadline << std::endl;
 #endif // NDEBUG
 
         LOG(INFO, "task %s: running on the CPU \n", task_name);
@@ -742,7 +742,7 @@ private:
 
 #ifndef NDEBUG
             // write the task execution time into its log file
-            exec_time_f << duration << endl;
+            exec_time_f << duration << std::endl;
             if (duration > task.deadline) {
                 printf(
                     "ERROR: task %s (%u): task duration %lu > deadline %lu!\n",
@@ -813,10 +813,10 @@ private:
                 exit(1);
             }
             if (add_deadline) {
-                dag_exec_time_f << dag_deadline_us << endl;
+                dag_exec_time_f << dag_deadline_us << std::endl;
             }
             for (unsigned int i = 0; i < hyperperiod_iters; i++)
-                dag_exec_time_f << task.dag_resp_times[i] << endl;
+                dag_exec_time_f << task.dag_resp_times[i] << std::endl;
             dag_exec_time_f.close();
         }
         // dont remove this print. otherwise the logic to read the memory will

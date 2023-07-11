@@ -7,6 +7,7 @@
 #include <thread>
 #include <vector>
 
+#include "time_aux.h"
 #include "multi_queue.h"
 #include "newstuff/schedutils.h"
 #include "periodic_task.h"
@@ -24,7 +25,7 @@ struct Edge {
         from(from), to(to), push_idx(push_idx), mq(mq), msg(msg_size, '.') {
 
         // The message is initialized with '.' (above) and a termination
-        // string character. This is to avoid errors when checking that the
+        // std::string character. This is to avoid errors when checking that the
         // transferred data is correct.
         msg[msg_size - 1] = '\0';
     }
@@ -86,7 +87,7 @@ public:
 #endif
 
 private:
-    void task_body();
+    void task_body(unsigned seed);
     void common_init();
     void loop_body_before(int iter);
     void loop_body_after(int iter, std::chrono::microseconds duration);
@@ -112,8 +113,8 @@ public:
     virtual ~Task() = default;
 
     // TODO: implement correctly the full process launcher
-    std::thread start() {
-        return std::thread(&Task::task_body, this);
+    std::thread start(int seed) {
+        return std::thread(&Task::task_body, this, seed);
     }
 
     inline bool is_originator() const {

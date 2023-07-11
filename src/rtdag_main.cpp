@@ -1,4 +1,6 @@
 #include <cstdlib>
+#include <fstream>
+#include <ostream>
 
 #include "rtdag_calib.h"
 #include "rtdag_command.h"
@@ -18,7 +20,7 @@ int main(int argc, char *argv[]) {
         // FIXME: pre-charge code on the GPU
         rtgauss_init(program_options.rtg_msize, program_options.rtg_type,
                      program_options.rtg_target);
-        ofstream nullf("/dev/null");
+        std::ofstream nullf("/dev/null");
         auto retv = waste_calibrate();
         nullf << retv;
         return calibrate(program_options.duration_us);
@@ -27,7 +29,7 @@ int main(int argc, char *argv[]) {
     case command_action::TEST: {
         rtgauss_init(program_options.rtg_msize, program_options.rtg_type,
                      program_options.rtg_target);
-        ofstream nullf("/dev/null");
+        std::ofstream nullf("/dev/null");
         auto retv = waste_calibrate();
         nullf << retv;
         return test_calibration(program_options.duration_us);
@@ -42,6 +44,6 @@ int main(int argc, char *argv[]) {
     }
 
     assert(false);
-    cerr << "There's an error in the implementation!" << endl;
+    std::cerr << "There's an error in the implementation!" << std::endl;
     return EXIT_FAILURE;
 }

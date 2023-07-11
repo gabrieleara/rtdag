@@ -102,14 +102,14 @@ message(STATUS "------------------------------------------- ")
 # ======================= TARGETS ======================== #
 
 add_executable(rtdag
-    # src/rtdag_main.cpp
+    src/rtdag_main.cpp
     src/periodic_task.c
-    # src/time_aux.c
+    src/time_aux.c
     src/rtgauss.cpp
     src/newstuff/schedutils.cpp
     src/newstuff/taskset.cpp
     src/newstuff/rtask.cpp
-
+    src/rtdag_calib.cpp
     src/input/yaml.cpp
 )
 
