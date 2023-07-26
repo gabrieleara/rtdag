@@ -6,11 +6,16 @@ include(cmake/CPM.cmake)
 
 # ==================== GLOBAL OPTIONS ==================== #
 
+# FIXME: selecting from command line the build type does not work
+
 # Choice-based features
 add_option_choice_force(CMAKE_BUILD_TYPE "Release" "Debug;Release;MinSizeRel;RelWithDebInfo" "Select type of build")
-add_option_numbered_choice(RTDAG_LOG_LEVEL "none" "none;error;warning;info;debug" "Logger verbosity level")
-add_option_numbered_choice(RTDAG_TASK_IMPL "thread" "thread;process" "How the task is implemented (either a thread or a process)")
+add_option_numbered_choice(RTDAG_LOG_LEVEL "error" "error;warning;info;debug" "Logger verbosity level")
+# add_option_numbered_choice(RTDAG_TASK_IMPL "thread" "thread;process" "How the task is implemented (either a thread or a process)")
 add_option_numbered_choice(RTDAG_INPUT_TYPE "yaml" "yaml;header" "How rtdag task configuration is provided")
+
+# Numeric features
+add_option_positive(RTDAG_MAX_TASKS 64 "The maximum number of tasks per DAG (requires re-compilation to change)")
 
 # Booolean features
 add_option_bool(RTDAG_COMPILER_BARRIER ON "Injects compiler barriers into code to prevent instruction reordering")
@@ -85,8 +90,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/rtdag_config.h.in rtdag_config.h 
 # Print all configuration variables
 message(STATUS "---------- CONFIGURATION OPTIONS ---------- ")
 message(STATUS "CMAKE_BUILD_TYPE            ${CMAKE_BUILD_TYPE}")
+message(STATUS "RTDAG_MAX_TASKS             ${RTDAG_MAX_TASKS}")
 message(STATUS "RTDAG_LOG_LEVEL             ${RTDAG_LOG_LEVEL} (${RTDAG_LOG_LEVEL_VALUE})")
-message(STATUS "RTDAG_TASK_IMPL             ${RTDAG_TASK_IMPL} (${RTDAG_TASK_IMPL_VALUE})")
+# message(STATUS "RTDAG_TASK_IMPL             ${RTDAG_TASK_IMPL} (${RTDAG_TASK_IMPL_VALUE})")
 message(STATUS "RTDAG_INPUT_TYPE            ${RTDAG_INPUT_TYPE} (${RTDAG_INPUT_TYPE_VALUE})")
 message(STATUS "RTDAG_COMPILER_BARRIER      ${RTDAG_COMPILER_BARRIER}")
 message(STATUS "RTDAG_MEM_ACCESS            ${RTDAG_MEM_ACCESS}")
@@ -103,8 +109,8 @@ message(STATUS "------------------------------------------- ")
 
 add_executable(rtdag
     src/rtdag_main.cpp
-    src/periodic_task.c
-    src/time_aux.c
+    src/periodic_task.cpp
+    src/time_aux.cpp
     src/rtgauss.cpp
     src/newstuff/schedutils.cpp
     src/newstuff/taskset.cpp

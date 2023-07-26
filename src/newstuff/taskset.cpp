@@ -42,7 +42,7 @@ static inline s64 num_activations(std::chrono::microseconds hyperperiod,
     return hyperperiod / period * repetitions;
 }
 
-static inline void
+static inline int
 task_single_check(const std::vector<std::unique_ptr<Task>> &tasks,
                   const auto predicate, const std::string &which) {
     auto predicate_on_pointer =
@@ -66,6 +66,9 @@ task_single_check(const std::vector<std::unique_ptr<Task>> &tasks,
         LOG(ERROR, "Found multiple %s tasks!\n", which.c_str());
         exit(EXIT_FAILURE);
     }
+
+    // Return the index of the task
+    return task_iter - begin;
 }
 
 DagTaskset::DagTaskset(const input_base &input) :
@@ -81,7 +84,8 @@ DagTaskset::DagTaskset(const input_base &input) :
     for (int task_id = 0; task_id < ntasks; ++task_id) {
         int inputs_count = howmany_inputs(input, task_id);
         if (inputs_count < 1) {
-            inputs_count = 1; // It will not be used, but
+            inputs_count =
+                1; // Will be used between the originator and the sink
         }
         dag.in_queues.emplace_back(std::make_unique<MultiQueue>(inputs_count));
     }
@@ -103,7 +107,8 @@ DagTaskset::DagTaskset(const input_base &input) :
         }
     }
 
-    // Finally, now that we have all the data, we can create the tasks
+    // Finally, now that we have all the data, we can create the tasks (not
+    // the actual threads, only the tasks representation and data)
     for (int i = 0; i < ntasks; ++i) {
         const std::string name = input.get_tasks_name(i);
         const int cpu = input.get_tasks_affinity(i);
@@ -156,8 +161,15 @@ DagTaskset::DagTaskset(const input_base &input) :
 
     const auto is_sink = [](const Task &task) { return task.is_originator(); };
 
-    task_single_check(tasks, is_originator, "originator");
+    int orig_index = task_single_check(tasks, is_originator, "originator");
     task_single_check(tasks, is_sink, "sink");
+
+    dag.start_dag = dag.in_queues[orig_index].get();
+
+    // The originator will wait for someone to wake him up before executing
+    // on this queue, hence we push something on it to allow it to start
+    // executing the first time
+    dag.start_dag->push(0);
 }
 
 void DagTaskset::print(std::ostream &os) {
@@ -173,7 +185,7 @@ void DagTaskset::launch(std::vector<int> &pids, unsigned seed) {
     for (const auto &task_ptr : tasks) {
         threads.emplace_back(task_ptr->start(seed));
 
-        // FIXME: save the tid once the thread starts in a
+        // TODO: save the tid once the thread starts in a
         // shared box and retrieve it from here!
 
         (void)pids;
@@ -185,7 +197,7 @@ void DagTaskset::launch(std::vector<int> &pids, unsigned seed) {
         // pids.push_back(tid);
     }
 
-    for (auto & thread : threads) {
+    for (auto &thread : threads) {
         thread.join();
     }
 }

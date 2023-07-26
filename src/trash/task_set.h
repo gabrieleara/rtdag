@@ -36,7 +36,7 @@
 #include <periodic_task.h>
 #include <time_aux.h>
 
-#include "multi_queue.h"
+#include "newstuff/mqueue.h"
 
 #include <pthread.h>
 
@@ -950,73 +950,6 @@ private:
         }
     }
 
-#if TASK_IMPL == TASK_IMPL_PROCESS
-    void process_launcher(unsigned seed) {
-        this->spawn_proc(tasks[0], seed, input->get_period());
-        for (unsigned i = 1; i < input->get_n_tasks(); ++i) {
-            this->spawn_proc(tasks[i], seed, 0);
-        }
-        // join processes
-
-        // a simpler way to wait the tasks ...
-        // while ((wpid = wait(&status)) > 0); // this way, the father waits for
-        // all the child processes a beter way to make sure all the tasks were
-        // closed
-        // https://stackoverflow.com/questions/8679226/does-a-kill-signal-exit-a-process-immediately
-        assert(pid_list->size() == input->get_n_tasks());
-        // this one is deleted
-        vector<int> local_task_id(*pid_list);
-        while (local_task_id.size() != 0) {
-            int pid = (int)waitpid(-1, NULL, WNOHANG);
-            if (pid > 0) {
-                // recover the task index w this PID to delete it from the list
-                auto task_it =
-                    find(local_task_id.begin(), local_task_id.end(), pid);
-                if (task_it == local_task_id.end()) {
-                    printf("ERROR: waitpid returned a invalid PID ?!?!\n");
-                    break;
-                } else {
-                    local_task_id.erase(task_it);
-                }
-                // this find is done only to get the name of the killed task
-                task_it = find(pid_list->begin(), pid_list->end(), pid);
-                unsigned task_idx = task_it - pid_list->begin();
-                printf("Task %s pid %d killed\n", tasks[task_idx].name.c_str(),
-                       pid);
-            } else if (pid == 0) {
-                sleep(1);
-            } else {
-                printf("WARNING: something went wrong in the task finishing "
-                       "procedure!\n");
-                break;
-            }
-        }
-    }
-
-    // does fork checking and save the PID
-    void spawn_proc(const task_type &task, const unsigned seed,
-                    const unsigned period) {
-        int pid = (int)fork();
-        if (pid < 0) {
-            perror("ERROR Fork Failed");
-            exit(-1);
-        }
-        if (pid == 0) {
-            printf("Task %s pid %d forked\n", task.name.c_str(), getpid());
-            task_creator(seed, input->get_dagset_name(), task,
-                         input->get_repetitions(), input->get_deadline(),
-                         period,
-                         input->get_tasks_expected_wcet_ratio(
-                             0)); // FIXME: this code is wrong, it is missing SO
-                                  // MANY THINGS
-            exit(0);
-        } else {
-            pid_list->push_back(pid);
-            LOG(INFO, "parent %d forked task %d\n", getppid(), pid);
-        }
-    }
-#endif
-
     // used to mimic the buffer memory reads when RTDAG_MEM_ACCESS is enabled
     static char read_input_buffer(char *buffer, unsigned size) {
         char checksum = 0;
@@ -1028,11 +961,7 @@ private:
     }
 
     static void pin_to_core(const unsigned cpu) {
-#if TASK_IMPL == TASK_IMPL_THREAD
         pin_thread(cpu);
-#else
-        pin_process(cpu);
-#endif
     }
 
     // https://github.com/rigtorp/SPSCQueue/blob/master/src/SPSCQueueBenchmark.cpp

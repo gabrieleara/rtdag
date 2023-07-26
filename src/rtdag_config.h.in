@@ -14,25 +14,25 @@
 
 // Integer options
 #define RTDAG_LOG_LEVEL @RTDAG_LOG_LEVEL_VALUE@
-#define RTDAG_TASK_IMPL @RTDAG_TASK_IMPL_VALUE@
+// #define RTDAG_TASK_IMPL @RTDAG_TASK_IMPL_VALUE@
 #define RTDAG_INPUT_TYPE @RTDAG_INPUT_TYPE_VALUE@
+#define RTDAG_MAX_TASKS @RTDAG_MAX_TASKS@
 
 // Reference values for the integer options
-#define LOG_LEVEL_NONE 0
-#define LOG_LEVEL_ERROR 1
-#define LOG_LEVEL_WARNING 2
-#define LOG_LEVEL_INFO 3
-#define LOG_LEVEL_DEBUG 4
+#define LOG_LEVEL_ERROR     0
+#define LOG_LEVEL_WARNING   1
+#define LOG_LEVEL_INFO      2
+#define LOG_LEVEL_DEBUG     3
 
-#define TASK_IMPL_THREAD 0
-#define TASK_IMPL_PROCESS 1
+// #define TASK_IMPL_THREAD 0
+// #define TASK_IMPL_PROCESS 1
 
 #define INPUT_TYPE_YAML 0
 #define INPUT_TYPE_HEADER 1
 
 // For backwards compatibility
-#define LOG_LEVEL RTDAG_LOG_LEVEL
-#define TASK_IMPL RTDAG_TASK_IMPL
-#define INPUT_TYPE RTDAG_INPUT_TYPE
+// #define LOG_LEVEL RTDAG_LOG_LEVEL
+// // #define TASK_IMPL RTDAG_TASK_IMPL
+// #define INPUT_TYPE RTDAG_INPUT_TYPE
 
 #endif // RTDAG_RTDAG_H

@@ -7,57 +7,53 @@
 #include <thread>
 #include <vector>
 
-#include "time_aux.h"
-#include "multi_queue.h"
+#include "newstuff/mqueue.h"
 #include "newstuff/schedutils.h"
 #include "periodic_task.h"
 #include "rtdag_calib.h"
 #include "rtgauss.h"
-
-struct Edge {
-    const int from;
-    const int to;
-    const int push_idx; // for pushing into mq
-    MultiQueue &mq;
-    std::vector<char> msg;
-
-    Edge(MultiQueue &mq, int from, int to, int push_idx, int msg_size) :
-        from(from), to(to), push_idx(push_idx), mq(mq), msg(msg_size, '.') {
-
-        // The message is initialized with '.' (above) and a termination
-        // std::string character. This is to avoid errors when checking that the
-        // transferred data is correct.
-        msg[msg_size - 1] = '\0';
-    }
-};
+#include "time_aux.h"
 
 class Dag {
 public:
     const std::string name;
-    const std::chrono::microseconds period;
-    const std::chrono::microseconds e2e_deadline;
+    const microseconds period;
+    const microseconds e2e_deadline;
     const s64 num_activations;
 
     // For some reason I need to specify <>
     std::barrier<> barrier;
 
-    // The queue used by the originator and the sink tasks
-    MultiQueue start_time{1};
-
-    // One per task, even if the originator does not use any. Using
-    // unique_ptr because MultiQueue is not movable (due to std::mutex and
-    // other attributes), which is not possible as a vector element.
+    // One per task. The originator technically does not have any, but we
+    // will use it to exchange the start time of the DAG with the sink
+    // task.
+    //
+    // Using unique_ptr because MultiQueue is not movable (due to
+    // std::mutex and other attributes), which is not possible as a vector
+    // element.
     std::vector<std::unique_ptr<MultiQueue>> in_queues;
 
     // The edge connections between tasks (reference the in_queues above)
     std::vector<Edge> edges;
 
-    // All the response times
-    std::vector<std::chrono::microseconds> response_times;
+    // Used to store the start time of the dag.
+    //
+    // NOTICE: this variable is NOT lock protected because ONLY THE DAG
+    // ORIGINATOR TASK WILL BE ABLE TO EXECUTE WHEN ACCESSED ON WRITE. All
+    // other tasks will be blocked waiting for the dag originator to wakeup
+    // and THE SINK TASK WILL WAKE UP THE ORIGINATOR AFTER FINISHING, so NO
+    // OVERLAP BETWEEN THE ORIGINATOR AND THE SINK IS POSSIBLE, hence the
+    // variable can be accessed freely without any (additional) lock.
+    struct timespec start_time;
 
-    Dag(const std::string &name, std::chrono::microseconds period,
-        std::chrono::microseconds e2e_deadline, s64 num_activations,
-        s32 ntasks) :
+    // Used to release a new instance of the dag
+    MultiQueue *start_dag;
+
+    // All the response times
+    std::vector<microseconds> response_times;
+
+    Dag(const std::string &name, microseconds period, microseconds e2e_deadline,
+        s64 num_activations, s32 ntasks) :
         name(name),
         period(period),
         e2e_deadline(e2e_deadline),
@@ -90,7 +86,7 @@ private:
     void task_body(unsigned seed);
     void common_init();
     void loop_body_before(int iter);
-    void loop_body_after(int iter, std::chrono::microseconds duration);
+    void loop_body_after(int iter, const struct timespec &duration);
     void common_exit();
 
 protected:
@@ -130,7 +126,7 @@ public:
 
 class GaussTask : public Task {
     // TODO: review all the types
-    const u64 wcet;
+    const microseconds wcet;
     const float ticks_per_us;
 
     const s32 matrix_size;
@@ -140,7 +136,7 @@ public:
     GaussTask(Dag &dag, const std::string &name, const std::string &type,
               const sched_info &scheduling, int cpu,
               const std::vector<Edge *> &in_edges,
-              std::vector<Edge *> out_edges, std::chrono::microseconds wcet,
+              std::vector<Edge *> out_edges, microseconds wcet,
               u64 expected_wcet_ratio, float ticks_per_us, s32 matrix_size,
               s32 omp_target) :
         Task(dag, name, type, scheduling, cpu, in_edges, out_edges),
@@ -162,7 +158,7 @@ public:
 
     void do_loop_work(int iter) override {
         LOG(INFO, "task %s (%u): running the processing step for %lu * %f\n",
-            name.c_str(), iter, wcet, ticks_per_us);
+            name.c_str(), iter, wcet.count(), ticks_per_us);
         Count_Time_Ticks(wcet, ticks_per_us);
     }
 

@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
         std::ofstream nullf("/dev/null");
         auto retv = waste_calibrate();
         nullf << retv;
-        return calibrate(program_options.duration_us);
+        return calibrate(program_options.duration);
     }
 
     case command_action::TEST: {
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
         std::ofstream nullf("/dev/null");
         auto retv = waste_calibrate();
         nullf << retv;
-        return test_calibration(program_options.duration_us);
+        return test_calibration(program_options.duration);
     }
 
     case command_action::RUN_DAG:

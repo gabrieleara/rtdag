@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include <cassert>
+#include <cstring>
 #include <fstream>
 #include <istream>
 #include <ostream>
@@ -39,13 +40,7 @@ static inline void task_pin(int cpu) {
     CPU_ZERO(&cpuset);
     CPU_SET(cpu, &cpuset);
 
-    if (int res =
-#if RTDAG_TASK_IMPL == TASK_IMPL_THREAD
-            task_pin_thread(cpuset)
-#else
-            task_pin_process(cpuset)
-#endif
-    ) {
+    if (int res = task_pin_thread(cpuset)) {
         (void)res;
         LOG(ERROR, "Could not pin to core %d!\n", cpu);
         exit(EXIT_FAILURE);
@@ -80,13 +75,13 @@ void Task::task_body(unsigned seed) {
     common_init();
 
     for (int i = 0; i < dag.num_activations; ++i) {
-        std::chrono::microseconds before, after, duration;
+        struct timespec before, after, duration;
 
         loop_body_before(i);
-        before = std::chrono::microseconds(micros());
+        before = curtime();
 
         do_loop_work(i);
-        after = std::chrono::microseconds(micros());
+        after = curtime();
         duration = after - before;
 
         loop_body_after(i, duration);
@@ -97,7 +92,6 @@ void Task::task_body(unsigned seed) {
 }
 
 void wait_on_barrier(std::barrier<> &barrier, const std::string &who) {
-#if TASK_IMPL == TASK_IMPL_THREAD
     // wait for all threads in the DAG to have been started up to this point
     LOG(DEBUG, "barrier_wait()ing on: %p for task %s\n", (void *)&barrier,
         who.c_str());
@@ -105,7 +99,6 @@ void wait_on_barrier(std::barrier<> &barrier, const std::string &who) {
     barrier.arrive_and_wait();
 
     LOG(DEBUG, "barrier_wait() returned:\n");
-#endif
 }
 
 #define TIMESPEC_FORMAT "%ld.%.9ld"
@@ -151,13 +144,8 @@ void Task::common_init() {
     }
 }
 
-std::chrono::microseconds get_next_period(struct period_info *pinfo) {
-    using ms = std::chrono::microseconds;
-
-    struct timespec &period = pinfo->next_period;
-    return ms(std::chrono::seconds(period.tv_sec)) +
-           std::chrono::duration_cast<ms>(
-               std::chrono::nanoseconds(period.tv_nsec));
+struct timespec get_next_period(struct period_info *pinfo) {
+    return pinfo->next_period;
 }
 
 #if RTDAG_MEM_ACCESS == ON
@@ -175,15 +163,13 @@ void wait_incoming_messages(Task &task, int iter) {
     if (task.in_buffers.size()) {
         // All the input buffers share the same MultiQueue reference, so we
         // can just wait on the first one
-        //
-        // FIXME: remove the size argument from the pop
-        task.in_buffers[0]->mq.pop(NULL, task.in_buffers.size());
+        task.in_buffers[0]->mq.pop();
 
         // Check that all the buffers have sent the right amount of data
         for (size_t i = 0; i < task.in_buffers.size(); ++i) {
             // NOTE: CHECKED ONLY IN DEBUG MODE
-            assert(strlen(task.in_buffers[i]->msg.data()) ==
-                   task.in_buffers[i]->msg.size() - 1);
+            // assert(strlen(task.in_buffers[i]->msg.data()) ==
+            //        (size_t) task.in_buffers[i]->msg.size() - 1);
 
 #if RTDAG_MEM_ACCESS == ON
             // This is a dummy code (a checksum calculation w xor) to
@@ -196,7 +182,8 @@ void wait_incoming_messages(Task &task, int iter) {
             LOG(DEBUG,
                 "task %s (%u), buffer n%d_n%d(%lu): got message: '%.50s'\n",
                 task.name.c_str(), iter, task.in_buffers[i]->from,
-                task.in_buffers[i]->to, strlen(task.in_buffers[i]->msg.data()),
+                task.in_buffers[i]->to,
+                strlen((char *)task.in_buffers[i]->msg.data()),
                 task.in_buffers[i]->msg.data());
         }
     }
@@ -208,13 +195,13 @@ void Task::loop_body_before(int iter) {
     // response time.
 
     if (is_originator()) {
-        std::chrono::microseconds now = get_next_period(&pinfo);
+        // Wait for the sink to release this task
+        dag.start_dag->pop();
 
-        // HACK: this is a terrible idea and it should be fixed!!
-        dag.start_time.push(0, (void *)now.count());
+        dag.start_time = get_next_period(&pinfo);
 
-        LOG(DEBUG, "task %s (%u): dag start time %lu\n", name.c_str(), iter,
-            now.count());
+        LOG(DEBUG, "task %s (%u): dag start time " TIMESPEC_FORMAT "\n",
+            name.c_str(), iter, dag.start_time.tv_sec, dag.start_time.tv_nsec);
     }
 
     wait_incoming_messages(*this, iter);
@@ -241,62 +228,59 @@ void write_to_queue(const char *from, int iter, char *buffer, int size) {
 #endif
 }
 
-void Task::loop_body_after(int iter, std::chrono::microseconds duration) {
+void Task::loop_body_after(int iter, const struct timespec &duration) {
     // Push the values into each queue
     for (size_t i = 0; i < out_buffers.size(); ++i) {
-        write_to_queue(name.c_str(), iter, out_buffers[i]->msg.data(),
+        write_to_queue(name.c_str(), iter, (char *)out_buffers[i]->msg.data(),
                        out_buffers[i]->msg.size());
 
         // The values pushed in the multi-queue are meaningless, on the
         // read side we always go check the ->msg content anyway...
-        out_buffers[i]->mq.push(out_buffers[i]->push_idx,
-                                out_buffers[i]->msg.data());
+        out_buffers[i]->mq.push(out_buffers[i]->push_idx);
 
         // To avoid printing too many characters if the buffer is very
         // long, we limit to the first 50 characters.
         LOG(DEBUG,
             "task %s (%u): buffer n%d_n%d, size %lu, sent message: '%.50s'\n",
             name.c_str(), iter, out_buffers[i]->from, out_buffers[i]->to,
-            strlen(out_buffers[i]->msg.data()), out_buffers[i]->msg.data());
+            strlen((char *)out_buffers[i]->msg.data()),
+            out_buffers[i]->msg.data());
     }
 
 #ifndef NDEBUG
     // FIXME: implement this stuff as well
 
     // write the task execution time into its log file
-    exec_time_f << duration << std::endl;
-    if (duration > task.deadline) {
-        printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n",
-               task_name, iter, duration, task.deadline);
-        // TODO: stop or continue ?
-    }
+    // exec_time_f << duration << std::endl;
+    // if (duration > task.deadline) {
+    //     printf("ERROR: task %s (%u): task duration %lu > deadline %lu!\n",
+    //            task_name, iter, duration, task.deadline);
+    //     // TODO: stop or continue ?
+    // }
 #endif // NDEBUG
 
     if (is_sink()) {
-        s64 last_dag_start;
+        struct timespec dag_duration = curtime() - dag.start_time;
 
-        // FIXME: there's something seriously wrong here
-        dag.start_time.pop((void **)&last_dag_start, 1);
+        LOG(INFO, "task %s (%u): dag dag_duration " TIMESPEC_FORMAT " s\n",
+            name.c_str(), iter, dag_duration.tv_sec, dag_duration.tv_nsec);
 
-        duration = std::chrono::microseconds(micros()) -
-                   std::chrono::microseconds(last_dag_start);
+        microseconds mduration = to_duration_truncate<microseconds>(duration);
 
-        LOG(INFO, "task %s (%u): dag duration %lu us = %lu ms = %lu s\n\n",
-            name.c_str(), iter, duration.count(),
-            std::chrono::duration_cast<std::chrono::milliseconds>(duration)
-                .count(),
-            std::chrono::duration_cast<std::chrono::seconds>(duration).count());
+        dag.response_times[iter] = mduration;
 
-        dag.response_times[iter] = duration;
-
-        if (duration > dag.e2e_deadline) {
+        if (mduration > dag.e2e_deadline) {
             // we do expect a few deadline misses, despite all
             // precautions, we'll find them in the output file
             LOG(ERROR,
                 "ERROR: dag deadline violation detected in iteration "
                 "%u. duration %ld us\n",
-                iter, duration.count());
+                iter, mduration.count());
         }
+
+        // Signal the first task that it can start once again (after the
+        // period wait elapsed)
+        dag.start_dag->push(0);
     }
 
     if (is_originator()) {
@@ -325,7 +309,7 @@ std::fstream open_append(const std::string &fname, bool &existed) {
 
 void Task::common_exit() {
 #ifndef NDEBUG
-    exec_time_f.close();
+    // exec_time_f.close();
 #endif // NDEBUG
 
     if (is_sink()) {

@@ -73,7 +73,7 @@ enum class command_action {
 struct opts {
     command_action action = command_action::RUN_DAG;
     std::string in_fname = "";
-    uint64_t duration_us = 0;
+    microseconds duration{0};
     rtgauss_type rtg_type = RTGAUSS_CPU;
     int rtg_target = 0;
     int rtg_msize = 4;
@@ -148,7 +148,7 @@ opts parse_args(int argc, char *argv[]) {
             if (!duration_valid) {
                 goto arg_error;
             }
-            program_options.duration_us = *duration_valid;
+            program_options.duration = microseconds(*duration_valid);
             program_options.action =
                 c == 'c' ? command_action::CALIBRATE : command_action::TEST;
             break;

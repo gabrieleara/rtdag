@@ -2,8 +2,8 @@
 
 #include <cerrno>
 #include <cstdio>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 
 #include "../logging.h"
 #include "../sched_defs.h"
@@ -62,8 +62,8 @@ void sched_info::set() const {
             sa.sched_period);
         LOG(ERROR,
             "make sure you can run real-time tasks, for example by \n"
-            "         running the following command before executing rtdag:\n"
-            "           echo -1 | sudo tee "
+            "          running the following command before executing rtdag:\n"
+            "            echo -1 | sudo tee "
             "/proc/sys/kernel/sched_rt_runtime_us\n");
         std::exit(EXIT_FAILURE);
     }

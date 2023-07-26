@@ -47,47 +47,51 @@ int get_ticks_per_us(bool required) {
 int waste_calibrate() {
     COMPILER_BARRIER();
 
-    uint64_t retv = Count_Time_Ticks(1, 1);
+    uint64_t retv = Count_Time_Ticks(microseconds(1), 1);
 
     COMPILER_BARRIER();
 
     return retv;
 }
 
-int test_calibration(uint64_t duration_us, uint64_t &time_difference) {
+int test_calibration(microseconds duration, struct timespec &time_difference) {
     int res = get_ticks_per_us(true);
     if (res)
         return res;
 
     COMPILER_BARRIER();
 
-    auto time_before = micros();
+    auto time_before = curtime();
 
     COMPILER_BARRIER();
 
-    uint64_t retv = Count_Time_Ticks(duration_us, ticks_per_us);
+    uint64_t retv = Count_Time_Ticks(duration, ticks_per_us);
     (void)(retv);
 
     COMPILER_BARRIER();
 
-    auto time_after = micros();
+    auto time_after = curtime();
 
     COMPILER_BARRIER();
 
     time_difference = time_after - time_before;
-    std::cout << "Test duration: " << time_difference << " micros" << std::endl;
+    printf("Test duration %ld micros\n",
+           to_duration_truncate<microseconds>(time_difference).count());
 
     return 0;
 }
 
-int test_calibration(uint64_t duration_us) {
-    uint64_t time_difference_unused;
-    return test_calibration(duration_us, time_difference_unused);
+int test_calibration(microseconds duration) {
+    struct timespec time_difference_unused;
+    return test_calibration(duration, time_difference_unused);
 }
 
-int calibrate(uint64_t duration_us) {
+int calibrate(microseconds duration) {
     int ret;
-    uint64_t time_difference = 1;
+    struct timespec time_difference = {
+        .tv_sec = 1,
+        .tv_nsec = nanoseconds(microseconds(1)).count(),
+    };
 
     ret = get_ticks_per_us(false);
     if (ret) {
@@ -95,18 +99,22 @@ int calibrate(uint64_t duration_us) {
         ticks_per_us = 10;
     }
 
-    std::cout << "About to calibrate for (roughly) " << duration_us
+    std::cout << "About to calibrate for (roughly) " << duration
               << " micros ..." << std::endl;
 
     // Will never return an error
-    test_calibration(duration_us, time_difference);
+    test_calibration(duration, time_difference);
     // fprintf(stderr, "DEBUG: %llu %llu %llu %llu\n", duration_us,
     // time_difference, ticks_per_us, duration_us * ticks_per_us);
 
     using ticks_type = decltype(ticks_per_us);
 
-    ticks_per_us = ticks_type(double(duration_us * ticks_per_us) /
-                              double(time_difference));
+    double duration_d = duration.count();
+    double time_difference_d = std::chrono::duration<double, std::micro>(
+                                   to_nanoseconds(time_difference))
+                                   .count();
+
+    ticks_per_us = ticks_type((duration_d * ticks_per_us) / time_difference_d);
 
     std::cout << "Calibration successful, use: 'export TICKS_PER_US="
               << ticks_per_us << "'" << std::endl;

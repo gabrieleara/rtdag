@@ -6,6 +6,7 @@
 #include "input/input.h"
 #include "newstuff/taskset.h"
 
+#include <cstring>
 #include <sys/stat.h>
 
 // the dag definition is here

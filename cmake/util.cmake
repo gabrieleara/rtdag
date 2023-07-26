@@ -7,7 +7,7 @@ function(add_option_string option_name default_value message)
 endfunction()
 
 function(add_option_string_force option_name default_value message)
-    set(${option_name} ${default_value} CACHE STRING "${message}" FORCE)
+    set(${option_name} ${default_value} CACHE STRING "${message}") # FORCE
 endfunction()
 
 function(add_option_choice option_name default_value values_list message)
@@ -18,6 +18,14 @@ endfunction()
 function(add_option_choice_force option_name default_value values_list message)
     add_option_string_force(${option_name} ${default_value} "${message}, options are: ${values_list}")
     set_property(CACHE ${option_name} PROPERTY STRINGS ${values_list})
+endfunction()
+
+function(add_option_positive option_name default_value message)
+    add_option_string(${option_name} ${default_value} "${message}")
+    if(${option_name} MATCHES "^[1-9][0-9]*")
+    else()
+        message(FATAL_ERROR "Option ${option_name} must be a positive integer!")
+    endif()
 endfunction()
 
 # function(add_option_internal option_name default_value)

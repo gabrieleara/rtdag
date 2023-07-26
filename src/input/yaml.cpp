@@ -116,7 +116,7 @@ input_yaml::input_yaml(const char *fname) : input_base() {
 
     if (((unsigned long)(n_tasks)) > MAX_N_TASKS) {
         std::fprintf(stderr,
-                     "ERROR: 'n_tasks' greater than maximum allowed: %d > %u\n",
+                     "ERROR: 'n_tasks' greater than maximum allowed: %d > %lu\n",
                      n_tasks, MAX_N_TASKS);
         std::fprintf(stderr, "Please, recompile rtdag to increase the "
                              "maximum allowed number.\n");

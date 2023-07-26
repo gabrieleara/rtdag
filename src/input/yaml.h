@@ -14,17 +14,14 @@ scenarios
 
 #include "input/base.h"
 #include "time_aux.h"
-#include "multi_queue.h"
+#include "newstuff/mqueue.h"
 
 #include <string>
 #include <vector>
 #include <limits>
 #include <yaml-cpp/yaml.h>
 
-// FIXME: The number of 32 is tied to the flags in the
-// multi_queue (and it's not even technically correct for
-// platforms in which an int/long is not 32 bits...)
-#define MAX_N_TASKS (std::numeric_limits<MultiQueue::mask_type>::digits)
+#define MAX_N_TASKS (MultiQueue::mask_type().size())
 
 class input_yaml : public input_base {
 private:
