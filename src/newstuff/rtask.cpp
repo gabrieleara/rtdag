@@ -30,9 +30,9 @@ static inline int task_pin_thread(const cpu_set_t &cpuset) {
     return pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
 }
 
-static inline int task_pin_process(const cpu_set_t &cpuset) {
-    return sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
-}
+// static inline int task_pin_process(const cpu_set_t &cpuset) {
+//     return sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
+// }
 
 static inline void task_pin(int cpu) {
     cpu_set_t cpuset;

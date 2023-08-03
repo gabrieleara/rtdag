@@ -1,29 +1,29 @@
 #include "newstuff/taskset.h"
 #include <pthread.h>
 
-static inline std::vector<int> output_tasks(const input_base &input,
-                                            int task_id) {
-    const int ntasks = input.get_n_tasks();
-    std::vector<int> v;
-    for (int col = 0; col < ntasks; ++col) {
-        if (input.get_adjacency_matrix(task_id, col) != 0) {
-            v.push_back(col);
-        }
-    }
-    return v;
-}
+// static inline std::vector<int> output_tasks(const input_base &input,
+//                                             int task_id) {
+//     const int ntasks = input.get_n_tasks();
+//     std::vector<int> v;
+//     for (int col = 0; col < ntasks; ++col) {
+//         if (input.get_adjacency_matrix(task_id, col) != 0) {
+//             v.push_back(col);
+//         }
+//     }
+//     return v;
+// }
 
-static inline std::vector<int> input_tasks(const input_base &input,
-                                           int task_id) {
-    const int ntasks = input.get_n_tasks();
-    std::vector<int> v;
-    for (int row = 0; row < ntasks; ++row) {
-        if (input.get_adjacency_matrix(row, task_id) != 0) {
-            v.push_back(row);
-        }
-    }
-    return v;
-}
+// static inline std::vector<int> input_tasks(const input_base &input,
+//                                            int task_id) {
+//     const int ntasks = input.get_n_tasks();
+//     std::vector<int> v;
+//     for (int row = 0; row < ntasks; ++row) {
+//         if (input.get_adjacency_matrix(row, task_id) != 0) {
+//             v.push_back(row);
+//         }
+//     }
+//     return v;
+// }
 
 static inline int howmany_inputs(const input_base &input, int task_id) {
     const int ntasks = input.get_n_tasks();

@@ -176,7 +176,7 @@ public:
     }
 };
 
-#if RTGAUSS_OMP_SUPPORT == ON
+#if RTDAG_OMP_SUPPORT == ON
 class OMPTask : public GaussTask {
 public:
     using GaussTask::GaussTask;
